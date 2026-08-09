@@ -1,21 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import {
-  getSupabaseConfig,
-  saveSupabaseConfig,
-  SupabaseConfig,
-} from '@/lib/db';
-import {
-  X,
-  Cloud,
-  Check,
-  Upload,
-  RefreshCw,
-  Info,
-  Server,
-  ShieldCheck,
-} from 'lucide-react';
+import { getCloudCredentials, setCloudCredentials } from '@/lib/db';
+import { X, Cloud, Check, Copy, Database, RefreshCw, Upload } from 'lucide-react';
 
 interface CloudSyncModalProps {
   isOpen: boolean;
@@ -32,39 +19,47 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
 }) => {
   const [url, setUrl] = useState('');
   const [key, setKey] = useState('');
-  const [tableName, setTableName] = useState('amway_items');
+  const [copiedSql, setCopiedSql] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
-      const config = getSupabaseConfig();
-      if (config) {
-        setUrl(config.url);
-        setKey(config.key);
-        setTableName(config.tableName || 'amway_items');
-      }
+      const creds = getCloudCredentials();
+      setUrl(creds.url);
+      setKey(creds.key);
     }
   }, [isOpen]);
 
   if (!isOpen) return null;
 
+  const sqlCode = `create table if not exists amway_items (
+  id text primary key,
+  title text not null,
+  category text not null,
+  subcategory text,
+  tags text[],
+  summary text,
+  content text,
+  highlights text[],
+  qa jsonb,
+  "isFavorite" boolean default false,
+  "updatedAt" text
+);`;
+
+  const handleCopySql = () => {
+    navigator.clipboard.writeText(sqlCode);
+    setCopiedSql(true);
+    setTimeout(() => setCopiedSql(false), 2000);
+  };
+
   const handleSaveConfig = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!url.trim() || !key.trim()) {
-      saveSupabaseConfig(null);
-    } else {
-      const config: SupabaseConfig = {
-        url: url.trim(),
-        key: key.trim(),
-        tableName: tableName.trim() || 'amway_items',
-      };
-      saveSupabaseConfig(config);
-    }
+    setCloudCredentials(url, key);
     setSavedSuccess(true);
     setTimeout(() => {
       setSavedSuccess(false);
       onClose();
-    }, 1500);
+    }, 1200);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -82,137 +77,111 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/80 backdrop-blur-sm animate-fade-in overflow-y-auto">
-      <div className="glass-modal w-full max-w-2xl flex flex-col overflow-hidden text-white my-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in overflow-y-auto">
+      <div className="clean-modal w-full max-w-xl flex flex-col overflow-hidden text-white my-auto">
         
         {/* Header */}
-        <div className="p-5 border-b border-white/10 flex items-center justify-between bg-slate-900/60">
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            <Cloud className="w-5 h-5 text-cyan-400" />
-            <span>Vercel 部署與多人共享設定</span>
+        <div className="p-4 border-b border-white/10 flex items-center justify-between bg-slate-900">
+          <h2 className="text-base font-bold flex items-center gap-2">
+            <Cloud className="w-4 h-4 text-emerald-400" />
+            <span>設定永久雲端資料庫 (Supabase / Vercel)</span>
           </h2>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-xl bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white transition-colors"
-          >
+          <button onClick={onClose} className="p-1 text-slate-400 hover:text-white">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-6 overflow-y-auto space-y-6 text-sm">
+        {/* Body */}
+        <div className="p-5 space-y-4 text-xs">
           
-          {/* Step 1: Vercel Deploy Instruction */}
-          <div className="p-4 rounded-xl bg-slate-900/80 border border-white/10 space-y-3">
-            <h3 className="font-bold text-white flex items-center gap-2 text-base">
-              <Server className="w-4 h-4 text-emerald-400" />
-              1. 如何部署到 Vercel 讓所有人開啟共享？
-            </h3>
-            <ol className="list-decimal list-inside space-y-1.5 text-xs text-slate-300">
-              <li>把此專案上傳至 GitHub，在 <strong className="text-white">Vercel.com</strong> 點擊 「Import Project」。</li>
-              <li>點擊 <strong className="text-white">Deploy</strong>，數秒後即可獲得免費的高速 URL 網址。</li>
-              <li>將生成好的 Vercel 網址傳給團隊夥伴，開啟網頁即可直接瀏覽與使用！</li>
-            </ol>
+          {/* Intro */}
+          <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-slate-200">
+            <p className="font-semibold text-emerald-300 mb-1">💡 如何建立真正的永久跨使用者共享資料庫？</p>
+            <p className="text-slate-300">
+              免費申請 **Supabase.com** 雲端資料庫，將專案的 URL 與 Key 貼在下方即可使所有存取此網頁的使用者共享永久資料！
+            </p>
           </div>
 
-          {/* Step 2: Supabase Realtime Sync Option */}
-          <form onSubmit={handleSaveConfig} className="p-4 rounded-xl bg-slate-900/80 border border-white/10 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-white flex items-center gap-2 text-base">
-                <ShieldCheck className="w-4 h-4 text-cyan-400" />
-                2. 綁定 Supabase 免費雲端資料庫 (多人即時同步)
-              </h3>
-              <span className="text-[11px] px-2 py-0.5 bg-cyan-500/20 text-cyan-300 rounded border border-cyan-500/30">
-                可選進階
-              </span>
+          {/* Form */}
+          <form onSubmit={handleSaveConfig} className="space-y-3 p-4 bg-slate-900/60 rounded-xl border border-white/10">
+            <div>
+              <label className="block text-slate-300 font-semibold mb-1">Supabase URL</label>
+              <input
+                type="text"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://xyzcompany.supabase.co"
+                className="w-full px-3 py-2 bg-slate-950 border border-white/10 rounded-lg text-white font-mono"
+              />
             </div>
 
-            <p className="text-xs text-slate-400">
-              只要在下方填入免費 Supabase 的 URL 與 Anon Key，全體成員新增/修改內容時就會自動雲端即時同步！
-            </p>
-
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1">Supabase Project URL</label>
-                <input
-                  type="text"
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  placeholder="https://xyzcompany.supabase.co"
-                  className="w-full px-3 py-2 bg-slate-950 border border-white/10 rounded-lg text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1">Supabase Anon Key</label>
-                <input
-                  type="password"
-                  value={key}
-                  onChange={(e) => setKey(e.target.value)}
-                  placeholder="eyJhbGciOiJIUzI1NiIsInR5..."
-                  className="w-full px-3 py-2 bg-slate-950 border border-white/10 rounded-lg text-white"
-                />
-              </div>
+            <div>
+              <label className="block text-slate-300 font-semibold mb-1">Supabase Anon Key</label>
+              <input
+                type="password"
+                value={key}
+                onChange={(e) => setKey(e.target.value)}
+                placeholder="eyJhbGciOiJIUzI1NiIsInR5..."
+                className="w-full px-3 py-2 bg-slate-950 border border-white/10 rounded-lg text-white font-mono"
+              />
             </div>
 
-            <div className="flex items-center justify-between pt-2">
-              {savedSuccess && (
-                <span className="text-xs text-emerald-400 flex items-center gap-1">
-                  <Check className="w-3.5 h-3.5" /> 設定已成功儲存！
+            <div className="flex items-center justify-between pt-1">
+              {savedSuccess ? (
+                <span className="text-emerald-400 flex items-center gap-1 font-semibold">
+                  <Check className="w-4 h-4" /> 已儲存雲端設定！
                 </span>
+              ) : (
+                <span className="text-slate-500">輸入完畢點擊右側儲存即可生效</span>
               )}
-              <button
-                type="submit"
-                className="button-primary text-xs ml-auto"
-              >
-                儲存雲端連線設定
+
+              <button type="submit" className="btn-primary">
+                儲存雲端連線
               </button>
             </div>
           </form>
 
-          {/* Step 3: JSON Import / Export & Reset */}
-          <div className="p-4 rounded-xl bg-slate-900/80 border border-white/10 space-y-3">
-            <h3 className="font-bold text-white flex items-center gap-2 text-base">
-              <Upload className="w-4 h-4 text-amber-400" />
-              3. 資料備份、匯入與重置
-            </h3>
-            
-            <div className="flex flex-wrap items-center gap-3">
-              {/* Import File Button */}
-              <label className="button-secondary text-xs cursor-pointer">
-                <Upload className="w-3.5 h-3.5" />
-                <span>匯入 JSON 備份檔</span>
-                <input
-                  type="file"
-                  accept=".json"
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
-              </label>
-
-              {/* Reset to Prototype Data */}
+          {/* SQL Generator */}
+          <div className="p-3 bg-slate-900/60 rounded-xl border border-white/10 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-slate-300 flex items-center gap-1">
+                <Database className="w-3.5 h-3.5 text-cyan-400" />
+                Supabase 建表 SQL 腳本
+              </span>
               <button
-                onClick={() => {
-                  if (confirm('確定要還原為初始雛形範例資料嗎？（自訂新增內容將會重置）')) {
-                    onResetDefault();
-                    onClose();
-                  }
-                }}
-                className="px-3 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors"
+                onClick={handleCopySql}
+                className="px-2 py-1 bg-white/5 hover:bg-white/10 text-slate-300 rounded flex items-center gap-1"
               >
-                <RefreshCw className="w-3.5 h-3.5" />
-                還原為預設雛形範例
+                {copiedSql ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                {copiedSql ? '已複製 SQL' : '複製 SQL'}
               </button>
             </div>
+            <pre className="p-2.5 bg-slate-950 rounded-lg font-mono text-[11px] text-slate-300 overflow-x-auto">
+              {sqlCode}
+            </pre>
           </div>
 
-        </div>
+          {/* Backup & Restore */}
+          <div className="flex items-center justify-between pt-2 border-t border-white/10">
+            <label className="btn-secondary text-xs cursor-pointer">
+              <Upload className="w-3.5 h-3.5" />
+              <span>匯入 JSON 備份</span>
+              <input type="file" accept=".json" onChange={handleFileChange} className="hidden" />
+            </label>
 
-        {/* Footer */}
-        <div className="p-4 border-t border-white/10 bg-slate-900/80 flex justify-end">
-          <button onClick={onClose} className="button-secondary text-xs">
-            關閉
-          </button>
+            <button
+              onClick={() => {
+                if (confirm('確定要恢復為初始雛形範例嗎？')) {
+                  onResetDefault();
+                  onClose();
+                }
+              }}
+              className="px-3 py-1.5 text-xs text-rose-400 hover:text-rose-300 flex items-center gap-1"
+            >
+              <RefreshCw className="w-3.5 h-3.5" /> 重置預設範例
+            </button>
+          </div>
+
         </div>
 
       </div>

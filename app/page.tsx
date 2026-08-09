@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { DatabaseItem, CategoryType, CATEGORIES } from '@/lib/types';
+import { DatabaseItem, CategoryType } from '@/lib/types';
 import { INITIAL_ITEMS } from '@/lib/initialData';
 import { loadItems, saveItems, exportDataJSON } from '@/lib/db';
 import { Header } from '@/components/Header';
@@ -11,7 +11,7 @@ import { ItemCard } from '@/components/ItemCard';
 import { ItemDetailModal } from '@/components/ItemDetailModal';
 import { EditItemModal } from '@/components/EditItemModal';
 import { CloudSyncModal } from '@/components/CloudSyncModal';
-import { Plus, Search, Sparkles, FolderOpen } from 'lucide-react';
+import { Plus, FolderOpen } from 'lucide-react';
 
 export default function HomePage() {
   const [items, setItems] = useState<DatabaseItem[]>(INITIAL_ITEMS);
@@ -26,7 +26,7 @@ export default function HomePage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isCloudModalOpen, setIsCloudModalOpen] = useState(false);
 
-  // 初次加載資料
+  // 初次載入資料
   useEffect(() => {
     loadItems().then((loaded) => {
       if (loaded && loaded.length > 0) {
@@ -35,7 +35,7 @@ export default function HomePage() {
     });
   }, []);
 
-  // 計算每個分類的數量
+  // 計算每個分類數量
   const itemCounts = useMemo(() => {
     const counts: Record<CategoryType, number> = {
       nutrition: 0,
@@ -51,7 +51,7 @@ export default function HomePage() {
     return counts;
   }, [items]);
 
-  // 當前頁籤中的所有熱門標籤
+  // 當前頁籤熱門標籤
   const currentTabTags = useMemo(() => {
     const tabItems = items.filter((i) => i.category === activeTab);
     const tagSet = new Set<string>();
@@ -61,19 +61,13 @@ export default function HomePage() {
     return Array.from(tagSet);
   }, [items, activeTab]);
 
-  // 根據 頁籤 + 搜尋關鍵字 + 標籤 + 收藏 進行精準過濾
+  // 過濾邏輯
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
-      // 1. 頁籤分類
       if (item.category !== activeTab) return false;
-
-      // 2. 精選過濾
       if (showOnlyFavorites && !item.isFavorite) return false;
-
-      // 3. 標籤過濾
       if (selectedTag && !item.tags.includes(selectedTag)) return false;
 
-      // 4. 關鍵字搜尋
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         const inTitle = item.title.toLowerCase().includes(q);
@@ -94,13 +88,11 @@ export default function HomePage() {
     });
   }, [items, activeTab, searchQuery, selectedTag, showOnlyFavorites]);
 
-  // 儲存全域變更
   const handlePersistItems = (newItems: DatabaseItem[]) => {
     setItems(newItems);
     saveItems(newItems);
   };
 
-  // 新增 / 編輯 儲存
   const handleSaveItem = (savedItem: DatabaseItem) => {
     const exists = items.some((i) => i.id === savedItem.id);
     let updated: DatabaseItem[];
@@ -112,7 +104,6 @@ export default function HomePage() {
     handlePersistItems(updated);
   };
 
-  // 刪除條目
   const handleDeleteItem = (id: string) => {
     const updated = items.filter((i) => i.id !== id);
     handlePersistItems(updated);
@@ -121,44 +112,28 @@ export default function HomePage() {
     }
   };
 
-  // 切換精選/收藏
   const handleToggleFavorite = (id: string) => {
     const updated = items.map((i) =>
       i.id === id ? { ...i, isFavorite: !i.isFavorite } : i
     );
     handlePersistItems(updated);
-    if (selectedItemForDetail?.id === id) {
-      setSelectedItemForDetail((prev) =>
-        prev ? { ...prev, isFavorite: !prev.isFavorite } : null
-      );
-    }
   };
 
-  // 匯入 JSON 備份
   const handleImportJSON = (jsonText: string) => {
     try {
       const parsed = JSON.parse(jsonText);
       if (Array.isArray(parsed) && parsed.length > 0) {
         handlePersistItems(parsed);
         alert(`成功匯入 ${parsed.length} 筆資料！`);
-      } else {
-        alert('匯入失敗：JSON 格式不合規');
       }
     } catch (e) {
       alert('無效的 JSON 檔案格式');
     }
   };
 
-  // 重置為預設
-  const handleResetDefault = () => {
-    handlePersistItems(INITIAL_ITEMS);
-  };
-
-  const activeCategoryInfo = CATEGORIES.find((c) => c.id === activeTab) || CATEGORIES[0];
-
   return (
-    <div className="min-h-screen pb-20">
-      {/* Top Header */}
+    <div className="min-h-screen pb-16">
+      {/* Header */}
       <Header
         onAddNew={() => {
           setItemForEditing(null);
@@ -169,7 +144,7 @@ export default function HomePage() {
         totalCount={items.length}
       />
 
-      {/* Main 4 Category Tabs */}
+      {/* Segmented Control 4 Tabs */}
       <TabNavigation
         activeTab={activeTab}
         onTabChange={(tab) => {
@@ -179,7 +154,7 @@ export default function HomePage() {
         itemCounts={itemCounts}
       />
 
-      {/* Search & Filter Bar */}
+      {/* Search & Tags */}
       <SearchAndFilter
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
@@ -191,22 +166,10 @@ export default function HomePage() {
         totalFilteredCount={filteredItems.length}
       />
 
-      {/* Category Banner Title */}
-      <div className="px-4 sm:px-8 max-w-7xl mx-auto mt-6 mb-4 flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-bold text-white flex items-center gap-2">
-            <span>{activeCategoryInfo.name}資料庫</span>
-            <span className="text-xs text-slate-400 font-normal">
-              ({filteredItems.length} 筆項目)
-            </span>
-          </h2>
-        </div>
-      </div>
-
-      {/* Grid List */}
-      <main className="px-4 sm:px-8 max-w-7xl mx-auto">
+      {/* Items Grid List */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 mt-4">
         {filteredItems.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredItems.map((item) => (
               <ItemCard
                 key={item.id}
@@ -222,26 +185,17 @@ export default function HomePage() {
             ))}
           </div>
         ) : (
-          /* Empty State */
-          <div className="glass-panel p-12 text-center max-w-md mx-auto my-12 space-y-4">
-            <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center mx-auto text-slate-500">
-              <FolderOpen className="w-8 h-8" />
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-white mb-1">找不到相關資料</h3>
-              <p className="text-slate-400 text-xs">
-                目前【{activeCategoryInfo.name}】頁籤下尚無符合條件的條目。
-              </p>
-            </div>
+          <div className="clean-card p-12 text-center max-w-sm mx-auto my-12 space-y-3">
+            <FolderOpen className="w-10 h-10 mx-auto text-slate-500" />
+            <p className="text-slate-300 font-semibold text-sm">尚無相關項目</p>
             <button
               onClick={() => {
                 setItemForEditing(null);
                 setIsEditModalOpen(true);
               }}
-              className="button-primary text-xs mx-auto"
+              className="btn-primary text-xs mx-auto"
             >
-              <Plus className="w-4 h-4" />
-              新增第一筆【{activeCategoryInfo.name}】資料
+              <Plus className="w-4 h-4" /> 新增資料
             </button>
           </div>
         )}
@@ -267,12 +221,12 @@ export default function HomePage() {
         onSave={handleSaveItem}
       />
 
-      {/* Cloud Sync & Backup Modal */}
+      {/* Cloud Sync & Permanent Database Setup */}
       <CloudSyncModal
         isOpen={isCloudModalOpen}
         onClose={() => setIsCloudModalOpen(false)}
         onImportJSON={handleImportJSON}
-        onResetDefault={handleResetDefault}
+        onResetDefault={() => handlePersistItems(INITIAL_ITEMS)}
       />
     </div>
   );
