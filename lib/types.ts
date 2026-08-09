@@ -22,6 +22,7 @@ export interface DatabaseItem {
   qa?: QAItem[];
   links?: LinkItem[];
   imageUrl?: string;
+  imageText?: string;
   isFavorite?: boolean;
   updatedAt: string;
 }
@@ -32,40 +33,35 @@ export interface CategoryInfo {
   iconName: string;
   description: string;
   color: string;
-  bgGradient: string;
 }
 
 export const CATEGORIES: CategoryInfo[] = [
   {
     id: 'nutrition',
-    name: '營養保健',
+    name: '\u71df\u990a\u4fdd\u5065',
     iconName: 'Apple',
-    description: '鈕崔萊 Nutrilite 核心保健、維生素與成分全解析',
-    color: '#10b981',
-    bgGradient: 'from-emerald-500/10 to-teal-500/5',
+    description: '\u7522\u54c1\u91cd\u9ede\u8207\u65e5\u5e38\u4fdd\u990a\u7b46\u8a18',
+    color: '#087f5b',
   },
   {
     id: 'water',
-    name: '淨水器',
+    name: '\u6de8\u6c34\u79d1\u6280',
     iconName: 'Droplets',
-    description: 'eSpring 益之源淨水器規格、濾心維護與故障排除',
-    color: '#06b6d4',
-    bgGradient: 'from-cyan-500/10 to-blue-500/5',
+    description: 'eSpring \u8207\u98f2\u6c34\u76f8\u95dc\u8cc7\u6599',
+    color: '#0b7891',
   },
   {
     id: 'air',
-    name: '空氣清淨機',
+    name: '\u7a7a\u6c23\u54c1\u8cea',
     iconName: 'Wind',
-    description: 'Atmosphere 逸新清淨機 HEPA 技術、效能與保養',
-    color: '#6366f1',
-    bgGradient: 'from-indigo-500/10 to-violet-500/5',
+    description: '\u7a7a\u6c23\u6e05\u6de8\u8207\u5c45\u5bb6\u74b0\u5883',
+    color: '#4f46e5',
   },
   {
     id: 'business',
-    name: '事業與起步',
+    name: '\u4e8b\u696d\u7d93\u71df',
     iconName: 'Briefcase',
-    description: '獎金制度、新手起步 90 天心法與溝通應答庫',
-    color: '#f59e0b',
-    bgGradient: 'from-amber-500/10 to-orange-500/5',
+    description: '\u9080\u7d04\u3001\u8ddf\u9032\u8207\u670d\u52d9\u7b46\u8a18',
+    color: '#b7791f',
   },
 ];

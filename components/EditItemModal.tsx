@@ -1,11 +1,41 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { DatabaseItem, CategoryType, CATEGORIES, QAItem } from '@/lib/types';
-import { X, Plus, Trash2, Save, Layers, Tag, Sparkles, HelpCircle } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { CATEGORIES, CategoryType, DatabaseItem, QAItem } from '@/lib/types';
+import { HelpCircle, Image as ImageIcon, Layers, Plus, Save, Sparkles, Trash2, X } from 'lucide-react';
+
+const text = {
+  edit: '\u7de8\u8f2f\u7b46\u8a18',
+  add: '\u65b0\u589e\u7b46\u8a18',
+  intro: '\u4ee5\u6458\u8981\u3001\u8a73\u7d30\u5167\u5bb9\u3001\u91cd\u9ede\u8207 Q&A \u7d44\u6210\u4e00\u5247\u597d\u641c\u5c0b\u7684\u7b46\u8a18\u3002',
+  close: '\u95dc\u9589',
+  category: '\u5206\u985e',
+  subcategory: '\u5b50\u5206\u985e',
+  subcategoryPlaceholder: '\u4f8b\u5982\uff1aDouble X\u3001eSpring\u3001\u9080\u7d04\u8a71\u8853',
+  title: '\u6a19\u984c',
+  titlePlaceholder: '\u8f38\u5165\u9019\u7b46\u7b46\u8a18\u7684\u4e3b\u984c',
+  summary: '\u4e00\u53e5\u8a71\u6458\u8981',
+  summaryPlaceholder: '\u7528\u4e00\u53e5\u8a71\u8aaa\u660e\u9019\u7b46\u7b46\u8a18\u9069\u5408\u54ea\u500b\u60c5\u5883',
+  content: '\u8a73\u7d30\u5167\u5bb9',
+  contentPlaceholder: '\u8f38\u5165\u5b8c\u6574\u8aaa\u660e\u3001\u8a71\u8853\u3001\u6d41\u7a0b\u6216\u6ce8\u610f\u4e8b\u9805',
+  imageText: '\u5716\u7247\u6587\u5b57',
+  imageTextPlaceholder: '\u5982\u679c\u5716\u7247\u4e0a\u6709\u6587\u5b57\uff0c\u8acb\u8cbc\u5728\u9019\u88e1\uff0c\u641c\u5c0b\u6642\u6703\u4e00\u8d77\u627e\u5230',
+  highlights: '\u91cd\u9ede\u6574\u7406',
+  addHighlight: '\u65b0\u589e\u91cd\u9ede',
+  highlightPlaceholder: '\u8f38\u5165\u4e00\u500b\u53ef\u76f4\u63a5\u8907\u88fd\u4f7f\u7528\u7684\u91cd\u9ede',
+  qa: 'Q&A',
+  addQa: '\u65b0\u589e Q&A',
+  questionPlaceholder: '\u9867\u5ba2\u53ef\u80fd\u6703\u554f\u7684\u554f\u984c',
+  answerPlaceholder: '\u5efa\u8b70\u56de\u7b54',
+  remove: '\u79fb\u9664',
+  cancel: '\u53d6\u6d88',
+  save: '\u5132\u5b58\u7b46\u8a18',
+  missingTitle: '\u8acb\u5148\u8f38\u5165\u7b46\u8a18\u6a19\u984c\u3002',
+  general: '\u4e00\u822c\u7b46\u8a18',
+};
 
 interface EditItemModalProps {
-  item: DatabaseItem | null; // null mode = create new
+  item: DatabaseItem | null;
   defaultCategory?: CategoryType;
   isOpen: boolean;
   onClose: () => void;
@@ -24,89 +54,59 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
   const [title, setTitle] = useState('');
   const [summary, setSummary] = useState('');
   const [content, setContent] = useState('');
-  const [tagsStr, setTagsStr] = useState('');
+  const [imageText, setImageText] = useState('');
   const [highlights, setHighlights] = useState<string[]>(['']);
   const [qaList, setQaList] = useState<QAItem[]>([{ question: '', answer: '' }]);
 
   useEffect(() => {
+    if (!isOpen) return;
+
     if (item) {
       setCategory(item.category);
       setSubcategory(item.subcategory || '');
       setTitle(item.title || '');
       setSummary(item.summary || '');
       setContent(item.content || '');
-      setTagsStr(item.tags ? item.tags.join(', ') : '');
-      setHighlights(item.highlights && item.highlights.length > 0 ? item.highlights : ['']);
-      setQaList(item.qa && item.qa.length > 0 ? item.qa : [{ question: '', answer: '' }]);
-    } else {
-      setCategory(defaultCategory);
-      setSubcategory('');
-      setTitle('');
-      setSummary('');
-      setContent('');
-      setTagsStr('');
-      setHighlights(['']);
-      setQaList([{ question: '', answer: '' }]);
+      setImageText(item.imageText || '');
+      setHighlights(item.highlights?.length ? item.highlights : ['']);
+      setQaList(item.qa?.length ? item.qa : [{ question: '', answer: '' }]);
+      return;
     }
-  }, [item, defaultCategory, isOpen]);
+
+    setCategory(defaultCategory);
+    setSubcategory('');
+    setTitle('');
+    setSummary('');
+    setContent('');
+    setImageText('');
+    setHighlights(['']);
+    setQaList([{ question: '', answer: '' }]);
+  }, [defaultCategory, isOpen, item]);
 
   if (!isOpen) return null;
-
-  const handleAddHighlight = () => {
-    setHighlights([...highlights, '']);
-  };
-
-  const handleUpdateHighlight = (index: number, val: string) => {
-    const copy = [...highlights];
-    copy[index] = val;
-    setHighlights(copy);
-  };
-
-  const handleRemoveHighlight = (index: number) => {
-    setHighlights(highlights.filter((_, i) => i !== index));
-  };
-
-  const handleAddQA = () => {
-    setQaList([...qaList, { question: '', answer: '' }]);
-  };
-
-  const handleUpdateQA = (index: number, field: 'question' | 'answer', val: string) => {
-    const copy = [...qaList];
-    copy[index][field] = val;
-    setQaList(copy);
-  };
-
-  const handleRemoveQA = (index: number) => {
-    setQaList(qaList.filter((_, i) => i !== index));
-  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!title.trim()) {
-      alert('請填寫產品或內容標題');
+      window.alert(text.missingTitle);
       return;
     }
 
-    const cleanedTags = tagsStr
-      .split(/[,，]/)
-      .map((t) => t.trim())
-      .filter((t) => t.length > 0);
-
-    const cleanedHighlights = highlights.map((h) => h.trim()).filter((h) => h.length > 0);
-    const cleanedQA = qaList.filter((q) => q.question.trim() && q.answer.trim());
-
     const savedItem: DatabaseItem = {
-      id: item ? item.id : `item-${Date.now()}`,
+      id: item?.id || `item-${Date.now()}`,
       title: title.trim(),
       category,
-      subcategory: subcategory.trim() || '通用資訊',
-      tags: cleanedTags,
+      subcategory: subcategory.trim() || text.general,
+      tags: item?.tags || [],
       summary: summary.trim(),
       content: content.trim(),
-      highlights: cleanedHighlights,
-      qa: cleanedQA,
-      isFavorite: item ? item.isFavorite : false,
+      imageText: imageText.trim(),
+      highlights: highlights.map((h) => h.trim()).filter(Boolean),
+      qa: qaList.filter((qa) => qa.question.trim() && qa.answer.trim()),
+      links: item?.links || [],
+      imageUrl: item?.imageUrl,
+      isFavorite: item?.isFavorite || false,
       updatedAt: new Date().toISOString(),
     };
 
@@ -115,137 +115,91 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/80 backdrop-blur-sm animate-fade-in overflow-y-auto">
-      <div className="glass-modal w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden text-white my-auto">
-        
-        {/* Header */}
-        <div className="p-5 border-b border-white/10 flex items-center justify-between bg-slate-900/60">
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            <Save className="w-5 h-5 text-emerald-400" />
-            <span>{item ? '編輯資料條目' : '新增資料條目'}</span>
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-xl bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white transition-colors"
-          >
-            <X className="w-5 h-5" />
+    <div className="modal-backdrop" role="dialog" aria-modal="true">
+      <div className="modal">
+        <div className="modal-header">
+          <div>
+            <h2 className="modal-title">{item ? text.edit : text.add}</h2>
+            <p className="modal-subtitle">{text.intro}</p>
+          </div>
+          <button className="icon-btn" type="button" onClick={onClose} title={text.close}>
+            <X size={20} />
           </button>
         </div>
 
-        {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-5 flex-1 text-sm">
-          
-          {/* Category & Subcategory */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
-                <Layers className="w-4 h-4 text-emerald-400" />
-                所屬四大分頁 *
+        <form className="modal-body form-stack" onSubmit={handleSubmit}>
+          <div className="form-grid">
+            <div className="form-group">
+              <label className="label">
+                <Layers size={16} color="var(--primary)" />
+                {text.category}
               </label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value as CategoryType)}
-                className="w-full px-3.5 py-2.5 bg-slate-900 border border-white/10 rounded-xl text-white focus:outline-none focus:border-emerald-500/50"
-              >
+              <select className="select" value={category} onChange={(e) => setCategory(e.target.value as CategoryType)}>
                 {CATEGORIES.map((cat) => (
                   <option key={cat.id} value={cat.id}>
-                    {cat.name} ({cat.description.slice(0, 15)}...)
+                    {cat.name}
                   </option>
                 ))}
               </select>
             </div>
 
-            <div>
-              <label className="block font-semibold text-slate-300 mb-1.5">
-                子分類標題 (如: 核心保養/機型比較)
-              </label>
-              <input
-                type="text"
-                value={subcategory}
-                onChange={(e) => setSubcategory(e.target.value)}
-                placeholder="例如：基礎營養 / 故障排除 / 90天起步"
-                className="w-full px-3.5 py-2.5 bg-slate-900 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50"
-              />
+            <div className="form-group">
+              <label className="label">{text.subcategory}</label>
+              <input className="field" value={subcategory} onChange={(e) => setSubcategory(e.target.value)} placeholder={text.subcategoryPlaceholder} />
             </div>
           </div>
 
-          {/* Title */}
-          <div>
-            <label className="block font-semibold text-slate-300 mb-1.5">
-              標題名稱 *
-            </label>
-            <input
-              type="text"
-              required
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="例如：Double X 綜合營養片 (核心全面防護)"
-              className="w-full px-3.5 py-2.5 bg-slate-900 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50"
-            />
+          <div className="form-group">
+            <label className="label">{text.title} *</label>
+            <input className="field" required value={title} onChange={(e) => setTitle(e.target.value)} placeholder={text.titlePlaceholder} />
           </div>
 
-          {/* Summary */}
-          <div>
-            <label className="block font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4 text-amber-400" />
-              一句話摘要 / 核心簡介
+          <div className="form-group">
+            <label className="label">
+              <Sparkles size={16} color="var(--amber)" />
+              {text.summary}
             </label>
-            <input
-              type="text"
-              value={summary}
-              onChange={(e) => setSummary(e.target.value)}
-              placeholder="簡短一句話說明重點，方便卡片預覽"
-              className="w-full px-3.5 py-2.5 bg-slate-900 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50"
-            />
+            <input className="field" value={summary} onChange={(e) => setSummary(e.target.value)} placeholder={text.summaryPlaceholder} />
           </div>
 
-          {/* Detailed Content */}
-          <div>
-            <label className="block font-semibold text-slate-300 mb-1.5">
-              詳細說明與完整內容 (支援換行與列舉)
-            </label>
-            <textarea
-              rows={5}
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="輸入產品詳細成分、規格、使用方法或溝通心法..."
-              className="w-full px-3.5 py-2.5 bg-slate-900 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50 resize-y"
-            />
+          <div className="form-group">
+            <label className="label">{text.content}</label>
+            <textarea className="textarea" rows={6} value={content} onChange={(e) => setContent(e.target.value)} placeholder={text.contentPlaceholder} />
           </div>
 
-          {/* Highlights */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="font-semibold text-slate-300 flex items-center gap-1.5">
-                <span>關鍵亮點清單</span>
-              </label>
-              <button
-                type="button"
-                onClick={handleAddHighlight}
-                className="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1"
-              >
-                <Plus className="w-3.5 h-3.5" /> 新增亮點
+          <div className="form-group">
+            <label className="label">
+              <ImageIcon size={16} color="var(--indigo)" />
+              {text.imageText}
+            </label>
+            <textarea className="textarea" rows={3} value={imageText} onChange={(e) => setImageText(e.target.value)} placeholder={text.imageTextPlaceholder} />
+          </div>
+
+          <div className="section">
+            <div className="form-row-between">
+              <label className="label">{text.highlights}</label>
+              <button className="btn-secondary" type="button" onClick={() => setHighlights([...highlights, ''])}>
+                <Plus size={15} />
+                <span>{text.addHighlight}</span>
               </button>
             </div>
-
-            <div className="space-y-2">
-              {highlights.map((h, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <span className="text-xs text-slate-500 w-5">{i + 1}.</span>
+            <div className="form-stack" style={{ marginTop: 10 }}>
+              {highlights.map((highlight, index) => (
+                <div className="inline-input-row" key={index}>
+                  <span className="help-text">{index + 1}.</span>
                   <input
-                    type="text"
-                    value={h}
-                    onChange={(e) => handleUpdateHighlight(i, e.target.value)}
-                    placeholder="輸入一條產品或事業亮點..."
-                    className="flex-1 px-3 py-2 bg-slate-900 border border-white/10 rounded-lg text-white text-xs"
+                    className="field"
+                    value={highlight}
+                    onChange={(e) => {
+                      const next = [...highlights];
+                      next[index] = e.target.value;
+                      setHighlights(next);
+                    }}
+                    placeholder={text.highlightPlaceholder}
                   />
                   {highlights.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveHighlight(i)}
-                      className="p-2 text-slate-400 hover:text-rose-400"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
+                    <button className="icon-btn" type="button" onClick={() => setHighlights(highlights.filter((_, i) => i !== index))} title={text.remove}>
+                      <Trash2 size={16} />
                     </button>
                   )}
                 </div>
@@ -253,91 +207,65 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
             </div>
           </div>
 
-          {/* Q&A Section */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="font-semibold text-slate-300 flex items-center gap-1.5">
-                <HelpCircle className="w-4 h-4 text-cyan-400" />
-                <span>常見問題與解答 (Q&A 答辯庫)</span>
+          <div className="section">
+            <div className="form-row-between">
+              <label className="label">
+                <HelpCircle size={16} color="var(--cyan)" />
+                {text.qa}
               </label>
-              <button
-                type="button"
-                onClick={handleAddQA}
-                className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1"
-              >
-                <Plus className="w-3.5 h-3.5" /> 新增 QA
+              <button className="btn-secondary" type="button" onClick={() => setQaList([...qaList, { question: '', answer: '' }])}>
+                <Plus size={15} />
+                <span>{text.addQa}</span>
               </button>
             </div>
-
-            <div className="space-y-3">
-              {qaList.map((qa, idx) => (
-                <div key={idx} className="p-3 bg-slate-900/80 rounded-xl border border-white/5 space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-bold text-cyan-400">QA #{idx + 1}</span>
+            <div className="form-stack" style={{ marginTop: 10 }}>
+              {qaList.map((qa, index) => (
+                <div className="repeat-box form-stack" key={index}>
+                  <div className="form-row-between">
+                    <strong className="help-text">QA #{index + 1}</strong>
                     {qaList.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveQA(idx)}
-                        className="text-xs text-rose-400 hover:text-rose-300 flex items-center gap-1"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" /> 刪除
+                      <button className="btn-danger" type="button" onClick={() => setQaList(qaList.filter((_, i) => i !== index))}>
+                        <Trash2 size={15} />
+                        <span>{text.remove}</span>
                       </button>
                     )}
                   </div>
                   <input
-                    type="text"
+                    className="field"
                     value={qa.question}
-                    onChange={(e) => handleUpdateQA(idx, 'question', e.target.value)}
-                    placeholder="問題，例如：孕婦可以食用嗎？"
-                    className="w-full px-3 py-1.5 bg-slate-950 border border-white/10 rounded-lg text-white text-xs placeholder-slate-500"
+                    onChange={(e) => {
+                      const next = [...qaList];
+                      next[index] = { ...next[index], question: e.target.value };
+                      setQaList(next);
+                    }}
+                    placeholder={text.questionPlaceholder}
                   />
                   <textarea
-                    rows={2}
+                    className="textarea"
+                    rows={3}
                     value={qa.answer}
-                    onChange={(e) => handleUpdateQA(idx, 'answer', e.target.value)}
-                    placeholder="完整答辯內容..."
-                    className="w-full px-3 py-1.5 bg-slate-950 border border-white/10 rounded-lg text-white text-xs placeholder-slate-500 resize-y"
+                    onChange={(e) => {
+                      const next = [...qaList];
+                      next[index] = { ...next[index], answer: e.target.value };
+                      setQaList(next);
+                    }}
+                    placeholder={text.answerPlaceholder}
                   />
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Tags */}
-          <div>
-            <label className="block font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
-              <Tag className="w-4 h-4 text-indigo-400" />
-              標籤 (用逗號隔開)
-            </label>
-            <input
-              type="text"
-              value={tagsStr}
-              onChange={(e) => setTagsStr(e.target.value)}
-              placeholder="例如：Double X, 綜合維生素, 抗氧化, 明星商品"
-              className="w-full px-3.5 py-2.5 bg-slate-900 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50"
-            />
-          </div>
-
-          {/* Submit */}
-          <div className="pt-4 border-t border-white/10 flex items-center justify-end gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="button-secondary text-xs"
-            >
-              取消
+          <div className="modal-footer" style={{ margin: '6px -18px -18px' }}>
+            <button className="btn-secondary" type="button" onClick={onClose}>
+              {text.cancel}
             </button>
-            <button
-              type="submit"
-              className="button-primary text-xs"
-            >
-              <Save className="w-4 h-4" />
-              儲存資料
+            <button className="btn-primary" type="submit">
+              <Save size={17} />
+              <span>{text.save}</span>
             </button>
           </div>
-
         </form>
-
       </div>
     </div>
   );

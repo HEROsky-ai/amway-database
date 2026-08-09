@@ -2,10 +2,24 @@
 
 import React, { useState } from 'react';
 import { DatabaseItem } from '@/lib/types';
-import { Star, Copy, Edit2, Trash2, Check, ArrowRight } from 'lucide-react';
+import { Check, Copy, Edit2, FileText, Star, Trash2 } from 'lucide-react';
+
+const text = {
+  uncategorized: '\u4e00\u822c\u7b46\u8a18',
+  favoriteOn: '\u53d6\u6d88\u6536\u85cf',
+  favoriteOff: '\u52a0\u5165\u6536\u85cf',
+  keyPoints: '\u91cd\u9ede\u6574\u7406',
+  copied: '\u5df2\u8907\u88fd',
+  copy: '\u8907\u88fd\u6458\u8981',
+  edit: '\u7de8\u8f2f',
+  delete: '\u522a\u9664',
+  confirmDelete: '\u78ba\u5b9a\u8981\u522a\u9664\u9019\u7b46\u8cc7\u6599\u55ce\uff1f',
+  open: '\u958b\u555f\u7b46\u8a18',
+};
 
 interface ItemCardProps {
   item: DatabaseItem;
+  isSelected?: boolean;
   onSelect: (item: DatabaseItem) => void;
   onEdit: (item: DatabaseItem) => void;
   onDelete: (id: string) => void;
@@ -14,6 +28,7 @@ interface ItemCardProps {
 
 export const ItemCard: React.FC<ItemCardProps> = ({
   item,
+  isSelected = false,
   onSelect,
   onEdit,
   onDelete,
@@ -21,100 +36,70 @@ export const ItemCard: React.FC<ItemCardProps> = ({
 }) => {
   const [copied, setCopied] = useState(false);
 
-  const handleCopy = (e: React.MouseEvent) => {
+  const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    const textToCopy = `【${item.title}】\n\n${item.summary}\n\n【重點亮點】\n${
-      item.highlights?.map((h) => `• ${h}`).join('\n') || item.content
-    }`;
-    navigator.clipboard.writeText(textToCopy);
+    const highlights = item.highlights?.length
+      ? item.highlights.map((h) => `- ${h}`).join('\n')
+      : item.content;
+    const textToCopy = `${item.title}\n\n${item.summary}\n\n${text.keyPoints}:\n${highlights}`;
+
+    await navigator.clipboard.writeText(textToCopy);
     setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
+    window.setTimeout(() => setCopied(false), 1600);
   };
 
   return (
-    <div
-      onClick={() => onSelect(item)}
-      className="clean-card p-5 flex flex-col justify-between cursor-pointer group"
-    >
-      <div>
-        {/* Header: Subcategory & Favorite */}
-        <div className="flex items-center justify-between gap-2 mb-2">
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-            {item.subcategory}
+    <article className={`item-card note-card ${isSelected ? 'selected' : ''}`}>
+      <button className="card-main" type="button" onClick={() => onSelect(item)} title={text.open}>
+        <div className="card-top">
+          <span className="note-type">
+            <FileText size={15} />
+            {item.subcategory || text.uncategorized}
           </span>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleFavorite(item.id);
-            }}
-            className="p-1 text-slate-400 hover:text-amber-400 transition-colors"
-          >
-            <Star
-              className={`w-4 h-4 ${item.isFavorite ? 'fill-amber-400 text-amber-400' : ''}`}
-            />
-          </button>
+          <span className="note-date">{new Date(item.updatedAt).toLocaleDateString('zh-TW')}</span>
         </div>
+        <h2 className="card-title line-clamp-2">{item.title}</h2>
+        <p className="card-summary line-clamp-3">{item.summary || item.content}</p>
+      </button>
 
-        {/* Title */}
-        <h3 className="text-base font-bold text-white group-hover:text-emerald-400 transition-colors mb-2">
-          {item.title}
-        </h3>
-
-        {/* Summary */}
-        <p className="text-slate-300 text-xs line-clamp-2 leading-relaxed mb-4">
-          {item.summary}
-        </p>
-      </div>
-
-      {/* Footer */}
-      <div className="pt-3 border-t border-white/5 flex items-center justify-between">
+      <div className="card-footer">
         <button
+          type="button"
           onClick={handleCopy}
-          className={`px-2.5 py-1 rounded-lg text-xs font-medium border flex items-center gap-1.5 transition-all ${
-            copied
-              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-              : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'
-          }`}
+          className={copied ? 'btn-secondary favorite-toggle active' : 'btn-secondary'}
         >
-          {copied ? (
-            <>
-              <Check className="w-3.5 h-3.5 text-emerald-400" /> 已複製
-            </>
-          ) : (
-            <>
-              <Copy className="w-3.5 h-3.5" /> 複製文案
-            </>
-          )}
+          {copied ? <Check size={16} /> : <Copy size={16} />}
+          <span>{copied ? text.copied : text.copy}</span>
         </button>
 
-        <div className="flex items-center gap-2 text-slate-400">
+        <div className="mini-actions">
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onEdit(item);
-            }}
-            className="p-1 hover:text-white"
-            title="編輯"
+            type="button"
+            className="icon-btn"
+            title={item.isFavorite ? text.favoriteOn : text.favoriteOff}
+            onClick={() => onToggleFavorite(item.id)}
           >
-            <Edit2 className="w-3.5 h-3.5" />
+            <Star
+              size={17}
+              color={item.isFavorite ? '#b7791f' : 'currentColor'}
+              fill={item.isFavorite ? '#b7791f' : 'none'}
+            />
           </button>
-
+          <button type="button" className="icon-btn" title={text.edit} onClick={() => onEdit(item)}>
+            <Edit2 size={16} />
+          </button>
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              if (confirm(`確定要刪除「${item.title}」嗎？`)) {
-                onDelete(item.id);
-              }
+            type="button"
+            className="icon-btn"
+            title={text.delete}
+            onClick={() => {
+              if (window.confirm(text.confirmDelete)) onDelete(item.id);
             }}
-            className="p-1 hover:text-rose-400"
-            title="刪除"
           >
-            <Trash2 className="w-3.5 h-3.5" />
+            <Trash2 size={16} />
           </button>
-
-          <ArrowRight className="w-4 h-4 ml-1 text-slate-500 group-hover:text-emerald-400 transition-colors" />
         </div>
       </div>
-    </div>
+    </article>
   );
 };

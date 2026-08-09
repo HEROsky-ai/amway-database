@@ -1,63 +1,51 @@
 'use client';
 
 import React from 'react';
-import { Database, Plus, Download, Cloud } from 'lucide-react';
+import { Database, Download, Plus } from 'lucide-react';
+
+const text = {
+  title: '\u5b89\u9e97\u8cc7\u6599\u842c\u80fd\u5eab',
+  subtitle: '\u7b46\u8a18\u3001\u554f\u7b54\u8207\u5716\u7247\u6587\u5b57\u7684\u5feb\u901f\u6aa2\u7d22\u5de5\u5177',
+  add: '\u65b0\u589e\u7b46\u8a18',
+  export: '\u532f\u51fa',
+  count: '\u7b46\u8cc7\u6599',
+};
 
 interface HeaderProps {
   onAddNew: () => void;
   onExport: () => void;
-  onOpenCloudSync: () => void;
   totalCount: number;
 }
 
-export const Header: React.FC<HeaderProps> = ({
-  onAddNew,
-  onExport,
-  onOpenCloudSync,
-  totalCount,
-}) => {
+export const Header: React.FC<HeaderProps> = ({ onAddNew, onExport, totalCount }) => {
   return (
-    <header className="w-full border-b border-white/10 bg-slate-950/80 sticky top-0 z-30 backdrop-blur-md">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between gap-4">
-        
-        {/* Title & Count */}
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-emerald-500/20 text-emerald-400 rounded-xl border border-emerald-500/30">
-            <Database className="w-5 h-5" />
+    <header className="topbar">
+      <div className="container topbar-inner">
+        <div className="brand">
+          <div className="brand-mark" aria-hidden="true">
+            <Database size={22} />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold text-white tracking-tight">
-                安麗萬能資料庫
-              </h1>
-              <span className="text-xs px-2 py-0.5 bg-slate-800 text-slate-400 rounded-full font-medium">
-                {totalCount} 筆資料
+            <h1 className="brand-title">{text.title}</h1>
+            <div className="brand-meta">
+              <span>{text.subtitle}</span>
+              <span className="count-pill">
+                {totalCount} {text.count}
               </span>
             </div>
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center gap-2">
-          <button onClick={onAddNew} className="btn-primary">
-            <Plus className="w-4 h-4" />
-            <span>新增資料</span>
+        <div className="actions">
+          <button onClick={onAddNew} className="btn-primary" type="button">
+            <Plus size={17} />
+            <span>{text.add}</span>
           </button>
-
-          <button
-            onClick={onOpenCloudSync}
-            className="btn-secondary"
-            title="永久資料庫設定 (Supabase)"
-          >
-            <Cloud className="w-4 h-4 text-emerald-400" />
-            <span className="hidden sm:inline">永久存檔</span>
-          </button>
-
-          <button onClick={onExport} className="btn-secondary" title="匯出 JSON 備份">
-            <Download className="w-4 h-4 text-slate-400" />
+          <button onClick={onExport} className="btn-secondary" type="button">
+            <Download size={17} />
+            <span>{text.export}</span>
           </button>
         </div>
-
       </div>
     </header>
   );

@@ -1,19 +1,34 @@
 'use client';
 
 import React, { useState } from 'react';
-import { DatabaseItem, CATEGORIES } from '@/lib/types';
+import { CATEGORIES, DatabaseItem } from '@/lib/types';
 import {
-  X,
-  Copy,
   Check,
+  Copy,
   Edit2,
   ExternalLink,
   HelpCircle,
-  Sparkles,
-  Tag,
-  Clock,
+  Image as ImageIcon,
+  Link,
   Share2,
+  Sparkles,
+  X,
 } from 'lucide-react';
+
+const text = {
+  updated: '\u66f4\u65b0',
+  summary: '\u4e00\u53e5\u8a71\u6458\u8981',
+  content: '\u8a73\u7d30\u5167\u5bb9',
+  highlights: '\u91cd\u9ede\u6574\u7406',
+  qa: '\u5e38\u898b\u554f\u7b54',
+  imageText: '\u5716\u7247\u6587\u5b57',
+  links: '\u76f8\u95dc\u9023\u7d50',
+  copy: '\u8907\u88fd\u5168\u90e8',
+  copied: '\u5df2\u8907\u88fd',
+  edit: '\u7de8\u8f2f',
+  close: '\u6536\u8d77',
+  none: '\u7121',
+};
 
 interface ItemDetailModalProps {
   item: DatabaseItem | null;
@@ -21,11 +36,7 @@ interface ItemDetailModalProps {
   onEdit: (item: DatabaseItem) => void;
 }
 
-export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
-  item,
-  onClose,
-  onEdit,
-}) => {
+export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, onClose, onEdit }) => {
   const [copiedAll, setCopiedAll] = useState(false);
   const [copiedQaIndex, setCopiedQaIndex] = useState<number | null>(null);
 
@@ -33,226 +44,139 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
 
   const catInfo = CATEGORIES.find((c) => c.id === item.category) || CATEGORIES[0];
 
-  const handleCopyFull = () => {
-    const text = `【${item.title}】\n\n📌 摘要說明：\n${item.summary}\n\n📝 詳細資訊：\n${item.content}\n\n🌟 產品亮點：\n${
-      item.highlights?.map((h) => `• ${h}`).join('\n') || '無'
-    }\n\n❓ 常見問答：\n${
-      item.qa?.map((q) => `Q: ${q.question}\nA: ${q.answer}`).join('\n\n') || '無'
-    }`;
+  const handleCopyFull = async () => {
+    const fullText = `${item.title}\n\n${text.summary}:\n${item.summary}\n\n${text.content}:\n${item.content}\n\n${text.highlights}:\n${
+      item.highlights?.map((h) => `- ${h}`).join('\n') || text.none
+    }\n\nQ&A:\n${item.qa?.map((q) => `Q: ${q.question}\nA: ${q.answer}`).join('\n\n') || text.none}\n\n${
+      text.imageText
+    }:\n${item.imageText || text.none}`;
 
-    navigator.clipboard.writeText(text);
+    await navigator.clipboard.writeText(fullText);
     setCopiedAll(true);
-    setTimeout(() => setCopiedAll(false), 2000);
+    window.setTimeout(() => setCopiedAll(false), 1600);
   };
 
-  const handleCopyQA = (index: number, q: string, a: string) => {
-    const text = `問：${q}\n答：${a}`;
-    navigator.clipboard.writeText(text);
+  const handleCopyQA = async (index: number, question: string, answer: string) => {
+    await navigator.clipboard.writeText(`Q: ${question}\nA: ${answer}`);
     setCopiedQaIndex(index);
-    setTimeout(() => setCopiedQaIndex(null), 2000);
+    window.setTimeout(() => setCopiedQaIndex(null), 1500);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/80 backdrop-blur-sm animate-fade-in overflow-y-auto">
-      <div className="glass-modal w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden text-white my-auto">
-        
-        {/* Header Bar */}
-        <div className="p-6 border-b border-white/10 flex items-start justify-between gap-4 bg-slate-900/40">
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <span
-                className="px-2.5 py-0.5 rounded-full text-xs font-bold"
-                style={{
-                  backgroundColor: `${catInfo.color}25`,
-                  color: catInfo.color,
-                  border: `1px solid ${catInfo.color}40`,
-                }}
-              >
-                {catInfo.name} • {item.subcategory}
-              </span>
-              <span className="text-xs text-slate-400 flex items-center gap-1">
-                <Clock className="w-3 h-3" />
-                {new Date(item.updatedAt).toLocaleDateString('zh-TW')}
-              </span>
-            </div>
-
-            <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-              {item.title}
-            </h2>
+    <section className="detail-panel">
+      <div className="detail-header">
+        <div>
+          <div className="brand-meta">
+            <span className="tag-pill" style={{ color: catInfo.color }}>
+              {catInfo.name} / {item.subcategory}
+            </span>
+            <span>
+              {text.updated} {new Date(item.updatedAt).toLocaleDateString('zh-TW')}
+            </span>
           </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => onEdit(item)}
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/15 text-slate-300 transition-colors border border-white/10"
-              title="編輯此筆資料"
-            >
-              <Edit2 className="w-4 h-4" />
-            </button>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/15 text-slate-300 transition-colors border border-white/10"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+          <h2 className="detail-title">{item.title}</h2>
         </div>
+        <div className="mini-actions">
+          <button className="btn-secondary" type="button" onClick={handleCopyFull}>
+            {copiedAll ? <Check size={16} /> : <Share2 size={16} />}
+            <span>{copiedAll ? text.copied : text.copy}</span>
+          </button>
+          <button className="icon-btn" type="button" title={text.edit} onClick={() => onEdit(item)}>
+            <Edit2 size={18} />
+          </button>
+          <button className="icon-btn" type="button" title={text.close} onClick={onClose}>
+            <X size={20} />
+          </button>
+        </div>
+      </div>
 
-        {/* Modal Scroll Content */}
-        <div className="p-6 overflow-y-auto space-y-6 flex-1">
-          
-          {/* Summary Box */}
-          <div className="p-4 rounded-xl bg-gradient-to-r from-slate-800/80 to-slate-900/80 border border-white/10 shadow-inner">
-            <h4 className="text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-1 flex items-center gap-1">
-              <Sparkles className="w-3.5 h-3.5" /> 核心快訊與摘要
-            </h4>
-            <p className="text-slate-200 text-sm leading-relaxed">{item.summary}</p>
-          </div>
+      <div className="detail-grid">
+        <section className="section detail-summary">
+          <h3 className="section-title">
+            <Sparkles size={17} color="var(--primary)" />
+            {text.summary}
+          </h3>
+          <p className="section-copy">{item.summary}</p>
+        </section>
 
-          {/* Full Content */}
-          <div>
-            <h4 className="text-sm font-bold text-white mb-2 pb-1 border-b border-white/10 flex items-center gap-2">
-              <span>詳細內容與說明</span>
-            </h4>
-            <div className="text-slate-300 text-sm whitespace-pre-wrap leading-relaxed space-y-2 bg-slate-950/40 p-4 rounded-xl border border-white/5">
-              {item.content}
-            </div>
-          </div>
+        <section className="section detail-content">
+          <h3 className="section-title">{text.content}</h3>
+          <p className="section-copy">{item.content}</p>
+        </section>
 
-          {/* Highlights */}
-          {item.highlights && item.highlights.length > 0 && (
-            <div>
-              <h4 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
-                <Check className="w-4 h-4 text-emerald-400" />
-                <span>產品 / 訴求關鍵亮點</span>
-              </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                {item.highlights.map((h, idx) => (
-                  <div
-                    key={idx}
-                    className="p-3 rounded-xl bg-slate-800/50 border border-white/5 flex items-start gap-2.5"
-                  >
-                    <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
-                      {idx + 1}
-                    </span>
-                    <span className="text-xs text-slate-200 leading-relaxed">{h}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Q&A Section */}
-          {item.qa && item.qa.length > 0 && (
-            <div>
-              <h4 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
-                <HelpCircle className="w-4 h-4 text-cyan-400" />
-                <span>常見顧客問答 (Q&A)</span>
-              </h4>
-              <div className="space-y-3">
-                {item.qa.map((qa, index) => (
-                  <div
-                    key={index}
-                    className="p-4 rounded-xl bg-slate-900/60 border border-white/10 space-y-2"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <h5 className="text-sm font-semibold text-cyan-300 flex items-start gap-2">
-                        <span className="px-1.5 py-0.5 bg-cyan-500/20 rounded text-xs font-bold">Q</span>
-                        {qa.question}
-                      </h5>
-                      <button
-                        onClick={() => handleCopyQA(index, qa.question, qa.answer)}
-                        className="text-xs px-2 py-1 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white rounded border border-white/10 flex items-center gap-1 shrink-0"
-                        title="複製這條 QA 答辯"
-                      >
-                        {copiedQaIndex === index ? (
-                          <>
-                            <Check className="w-3 h-3 text-emerald-400" />
-                            已複製
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="w-3 h-3" />
-                            複製此 QA
-                          </>
-                        )}
-                      </button>
-                    </div>
-                    <p className="text-slate-300 text-xs pl-6 leading-relaxed">
-                      {qa.answer}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Links */}
-          {item.links && item.links.length > 0 && (
-            <div>
-              <h4 className="text-sm font-bold text-white mb-2">外部參考與延伸資源</h4>
-              <div className="flex flex-wrap gap-2">
-                {item.links.map((link, i) => (
-                  <a
-                    key={i}
-                    href={link.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 border border-blue-500/30 rounded-lg text-xs font-medium transition-colors"
-                  >
-                    <span>{link.label}</span>
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Tags Footer */}
-          <div className="flex items-center gap-2 pt-2">
-            <Tag className="w-3.5 h-3.5 text-slate-500" />
-            <div className="flex flex-wrap gap-1">
-              {item.tags.map((t) => (
-                <span
-                  key={t}
-                  className="px-2.5 py-0.5 bg-slate-800 text-slate-400 rounded-full text-[11px]"
-                >
-                  #{t}
-                </span>
+        {!!item.highlights?.length && (
+          <section className="section">
+            <h3 className="section-title">
+              <Check size={17} color="var(--primary)" />
+              {text.highlights}
+            </h3>
+            <div className="highlight-grid">
+              {item.highlights.map((highlight, index) => (
+                <div className="highlight-item" key={`${highlight}-${index}`}>
+                  <span className="index-dot">{index + 1}</span>
+                  <span>{highlight}</span>
+                </div>
               ))}
             </div>
-          </div>
+          </section>
+        )}
 
-        </div>
+        {!!item.qa?.length && (
+          <section className="section">
+            <h3 className="section-title">
+              <HelpCircle size={17} color="var(--cyan)" />
+              {text.qa}
+            </h3>
+            <div className="qa-list">
+              {item.qa.map((qa, index) => (
+                <div className="qa-item" key={`${qa.question}-${index}`}>
+                  <div className="form-row-between">
+                    <p className="qa-question">Q. {qa.question}</p>
+                    <button className="btn-secondary" type="button" onClick={() => handleCopyQA(index, qa.question, qa.answer)}>
+                      {copiedQaIndex === index ? <Check size={15} /> : <Copy size={15} />}
+                      <span>{copiedQaIndex === index ? text.copied : text.copy}</span>
+                    </button>
+                  </div>
+                  <p className="qa-answer">A. {qa.answer}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
-        {/* Modal Footer Actions */}
-        <div className="p-4 border-t border-white/10 bg-slate-900/80 flex items-center justify-between">
-          <button
-            onClick={handleCopyFull}
-            className="button-primary text-xs"
-          >
-            {copiedAll ? (
-              <>
-                <Check className="w-4 h-4" />
-                已複製完整資料包
-              </>
-            ) : (
-              <>
-                <Share2 className="w-4 h-4" />
-                一鍵複製完整宣傳與 QA 文案
-              </>
-            )}
-          </button>
+        {item.imageText && (
+          <section className="section">
+            <h3 className="section-title">
+              <ImageIcon size={17} color="var(--amber)" />
+              {text.imageText}
+            </h3>
+            <p className="section-copy">{item.imageText}</p>
+          </section>
+        )}
 
-          <button
-            onClick={onClose}
-            className="button-secondary text-xs"
-          >
-            關閉
-          </button>
-        </div>
-
+        {!!item.links?.length && (
+          <section className="section">
+            <h3 className="section-title">
+              <Link size={17} color="var(--indigo)" />
+              {text.links}
+            </h3>
+            <div className="link-list">
+              {item.links.map((linkItem) => (
+                <a
+                  className="text-link"
+                  href={linkItem.url}
+                  key={`${linkItem.label}-${linkItem.url}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {linkItem.label}
+                  <ExternalLink size={14} />
+                </a>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
-    </div>
+    </section>
   );
 };
