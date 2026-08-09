@@ -5,11 +5,17 @@ const LOCAL_STORAGE_KEY = 'amway_omni_db_items_v2';
 const SUPABASE_URL_KEY = 'amway_supabase_url';
 const SUPABASE_KEY_KEY = 'amway_supabase_key';
 
+export interface SupabaseConfig {
+  url: string;
+  key: string;
+  tableName?: string;
+}
+
 // 取得本機或雲端設定
-export const getCloudCredentials = () => {
-  if (typeof window === 'undefined') return { url: '', key: '' };
+export const getCloudCredentials = (): SupabaseConfig => {
+  if (typeof window === 'undefined') return { url: 'https://lmcftpaujhdmmbiczbcu.supabase.co', key: '' };
   return {
-    url: localStorage.getItem(SUPABASE_URL_KEY) || process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    url: localStorage.getItem(SUPABASE_URL_KEY) || process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://lmcftpaujhdmmbiczbcu.supabase.co',
     key: localStorage.getItem(SUPABASE_KEY_KEY) || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
   };
 };
@@ -25,11 +31,17 @@ export const setCloudCredentials = (url: string, key: string) => {
   }
 };
 
+// Aliases for compatibility
+export const getSupabaseConfig = getCloudCredentials;
+export const saveSupabaseConfig = (config: SupabaseConfig | null) => {
+  if (!config) setCloudCredentials('', '');
+  else setCloudCredentials(config.url, config.key);
+};
+
 // 載入資料 (優先從 API / Supabase 讀取，確保永久雲端數據)
 export const loadItems = async (): Promise<DatabaseItem[]> => {
   if (typeof window === 'undefined') return INITIAL_ITEMS;
 
-  // 1. 嘗試透過雲端 /api/items 讀取
   try {
     const creds = getCloudCredentials();
     const headers: Record<string, string> = {};
@@ -54,7 +66,6 @@ export const loadItems = async (): Promise<DatabaseItem[]> => {
     console.warn('雲端資料讀取失敗，切換至本機快取:', err);
   }
 
-  // 2. 本機快取
   try {
     const local = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (local) {
@@ -65,7 +76,6 @@ export const loadItems = async (): Promise<DatabaseItem[]> => {
     console.error('LocalStorage 讀取失敗:', e);
   }
 
-  // 3. 預設雛形資料
   localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(INITIAL_ITEMS));
   return INITIAL_ITEMS;
 };
@@ -74,14 +84,12 @@ export const loadItems = async (): Promise<DatabaseItem[]> => {
 export const saveItems = async (items: DatabaseItem[]): Promise<boolean> => {
   if (typeof window === 'undefined') return false;
 
-  // 1. 寫入 LocalStorage 快取
   try {
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(items));
   } catch (e) {
     console.error('LocalStorage 寫入失敗:', e);
   }
 
-  // 2. 寫入 永久雲端 API / Supabase
   try {
     const creds = getCloudCredentials();
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
