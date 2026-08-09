@@ -5,18 +5,23 @@ const LOCAL_STORAGE_KEY = 'amway_omni_db_items_v2';
 const SUPABASE_URL_KEY = 'amway_supabase_url';
 const SUPABASE_KEY_KEY = 'amway_supabase_key';
 
+const DEFAULT_SUPABASE_URL = 'https://lmcftpaujhdmmbiczbcu.supabase.co';
+const DEFAULT_SUPABASE_KEY = 'sb_publishable_eTT-XDiMSqrLd0H-RqJy2w_QiJyN26c';
+
 export interface SupabaseConfig {
   url: string;
   key: string;
   tableName?: string;
 }
 
-// 取得本機或雲端設定
+// 取得本機或雲端設定 (預設直接寫入使用者之 Supabase 金鑰)
 export const getCloudCredentials = (): SupabaseConfig => {
-  if (typeof window === 'undefined') return { url: 'https://lmcftpaujhdmmbiczbcu.supabase.co', key: '' };
+  if (typeof window === 'undefined') {
+    return { url: DEFAULT_SUPABASE_URL, key: DEFAULT_SUPABASE_KEY };
+  }
   return {
-    url: localStorage.getItem(SUPABASE_URL_KEY) || process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://lmcftpaujhdmmbiczbcu.supabase.co',
-    key: localStorage.getItem(SUPABASE_KEY_KEY) || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+    url: localStorage.getItem(SUPABASE_URL_KEY) || process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE_URL,
+    key: localStorage.getItem(SUPABASE_KEY_KEY) || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_KEY,
   };
 };
 
@@ -31,7 +36,6 @@ export const setCloudCredentials = (url: string, key: string) => {
   }
 };
 
-// Aliases for compatibility
 export const getSupabaseConfig = getCloudCredentials;
 export const saveSupabaseConfig = (config: SupabaseConfig | null) => {
   if (!config) setCloudCredentials('', '');
