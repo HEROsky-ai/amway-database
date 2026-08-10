@@ -1,32 +1,27 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { DatabaseItem, CategoryType } from '@/lib/types';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { DatabaseItem, CategoryType, CATEGORIES } from '@/lib/types';
 import { INITIAL_ITEMS } from '@/lib/initialData';
 import { loadItems, saveItems, exportDataJSON } from '@/lib/db';
 import { Header } from '@/components/Header';
 import { TabNavigation } from '@/components/TabNavigation';
-import { SearchAndFilter } from '@/components/SearchAndFilter';
-import { ItemCard } from '@/components/ItemCard';
-import { ItemDetailModal } from '@/components/ItemDetailModal';
+import { SearchBar } from '@/components/SearchBar';
+import { NoteCard } from '@/components/NoteCard';
+import { InlineDetailPanel } from '@/components/InlineDetailPanel';
 import { EditItemModal } from '@/components/EditItemModal';
-import { CloudSyncModal } from '@/components/CloudSyncModal';
 import { Plus, FolderOpen } from 'lucide-react';
 
 export default function HomePage() {
   const [items, setItems] = useState<DatabaseItem[]>(INITIAL_ITEMS);
   const [activeTab, setActiveTab] = useState<CategoryType>('nutrition');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedTag, setSelectedTag] = useState<string | null>(null);
-  const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
-
-  // Modals state
-  const [selectedItemForDetail, setSelectedItemForDetail] = useState<DatabaseItem | null>(null);
+  const [selectedItem, setSelectedItem] = useState<DatabaseItem | null>(null);
   const [itemForEditing, setItemForEditing] = useState<DatabaseItem | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isCloudModalOpen, setIsCloudModalOpen] = useState(false);
+  const detailRef = useRef<HTMLDivElement>(null);
 
-  // 初次載入資料
+  // 初次載入
   useEffect(() => {
     loadItems().then((loaded) => {
       if (loaded && loaded.length > 0) {
@@ -35,184 +30,164 @@ export default function HomePage() {
     });
   }, []);
 
+  // 切換 tab 時清除 selected
+  const handleTabChange = (tab: CategoryType) => {
+    setActiveTab(tab);
+    setSelectedItem(null);
+  };
+
   // 計算每個分類數量
   const itemCounts = useMemo(() => {
     const counts: Record<CategoryType, number> = {
-      nutrition: 0,
-      water: 0,
-      air: 0,
-      business: 0,
+      nutrition: 0, water: 0, air: 0, business: 0,
     };
-    items.forEach((item) => {
-      if (counts[item.category] !== undefined) {
-        counts[item.category]++;
-      }
-    });
+    items.forEach((item) => { counts[item.category]++; });
     return counts;
   }, [items]);
 
-  // 當前頁籤熱門標籤
-  const currentTabTags = useMemo(() => {
-    const tabItems = items.filter((i) => i.category === activeTab);
-    const tagSet = new Set<string>();
-    tabItems.forEach((item) => {
-      item.tags?.forEach((t) => tagSet.add(t));
-    });
-    return Array.from(tagSet);
-  }, [items, activeTab]);
-
-  // 過濾邏輯
+  // 過濾邏輯：全文搜尋 (標題、摘要、內容、子分類、亮點、QA、標籤)
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
       if (item.category !== activeTab) return false;
-      if (showOnlyFavorites && !item.isFavorite) return false;
-      if (selectedTag && !item.tags.includes(selectedTag)) return false;
-
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const inTitle = item.title.toLowerCase().includes(q);
-        const inSummary = item.summary.toLowerCase().includes(q);
-        const inContent = item.content.toLowerCase().includes(q);
-        const inSubcat = item.subcategory.toLowerCase().includes(q);
-        const inTags = item.tags.some((t) => t.toLowerCase().includes(q));
-        const inQA = item.qa?.some(
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase().trim();
+      return (
+        item.title.toLowerCase().includes(q) ||
+        item.summary.toLowerCase().includes(q) ||
+        item.content.toLowerCase().includes(q) ||
+        item.subcategory.toLowerCase().includes(q) ||
+        item.tags?.some((t) => t.toLowerCase().includes(q)) ||
+        item.highlights?.some((h) => h.toLowerCase().includes(q)) ||
+        item.qa?.some(
           (qa) => qa.question.toLowerCase().includes(q) || qa.answer.toLowerCase().includes(q)
-        );
-
-        if (!inTitle && !inSummary && !inContent && !inSubcat && !inTags && !inQA) {
-          return false;
-        }
-      }
-
-      return true;
+        )
+      );
     });
-  }, [items, activeTab, searchQuery, selectedTag, showOnlyFavorites]);
+  }, [items, activeTab, searchQuery]);
 
-  const handlePersistItems = (newItems: DatabaseItem[]) => {
+  const persistItems = (newItems: DatabaseItem[]) => {
     setItems(newItems);
     saveItems(newItems);
   };
 
   const handleSaveItem = (savedItem: DatabaseItem) => {
     const exists = items.some((i) => i.id === savedItem.id);
-    let updated: DatabaseItem[];
-    if (exists) {
-      updated = items.map((i) => (i.id === savedItem.id ? savedItem : i));
-    } else {
-      updated = [savedItem, ...items];
-    }
-    handlePersistItems(updated);
+    const updated = exists
+      ? items.map((i) => (i.id === savedItem.id ? savedItem : i))
+      : [savedItem, ...items];
+    persistItems(updated);
+    // update selected if it was edited
+    if (selectedItem?.id === savedItem.id) setSelectedItem(savedItem);
   };
 
   const handleDeleteItem = (id: string) => {
-    const updated = items.filter((i) => i.id !== id);
-    handlePersistItems(updated);
-    if (selectedItemForDetail?.id === id) {
-      setSelectedItemForDetail(null);
-    }
+    persistItems(items.filter((i) => i.id !== id));
+    if (selectedItem?.id === id) setSelectedItem(null);
   };
 
   const handleToggleFavorite = (id: string) => {
-    const updated = items.map((i) =>
-      i.id === id ? { ...i, isFavorite: !i.isFavorite } : i
-    );
-    handlePersistItems(updated);
+    persistItems(items.map((i) => (i.id === id ? { ...i, isFavorite: !i.isFavorite } : i)));
   };
 
-  const handleImportJSON = (jsonText: string) => {
-    try {
-      const parsed = JSON.parse(jsonText);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        handlePersistItems(parsed);
-        alert(`成功匯入 ${parsed.length} 筆資料！`);
-      }
-    } catch (e) {
-      alert('無效的 JSON 檔案格式');
+  const handleSelectCard = (item: DatabaseItem) => {
+    if (selectedItem?.id === item.id) {
+      setSelectedItem(null); // toggle off
+    } else {
+      setSelectedItem(item);
+      // Smooth scroll to detail panel after render
+      setTimeout(() => {
+        detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 50);
     }
   };
 
+  const openEditFor = (it: DatabaseItem) => {
+    setItemForEditing(it);
+    setIsEditModalOpen(true);
+  };
+
+  const catInfo = CATEGORIES.find((c) => c.id === activeTab) || CATEGORIES[0];
+
   return (
-    <div className="min-h-screen pb-16">
-      {/* Header */}
+    <>
       <Header
-        onAddNew={() => {
-          setItemForEditing(null);
-          setIsEditModalOpen(true);
-        }}
+        onAddNew={() => { setItemForEditing(null); setIsEditModalOpen(true); }}
         onExport={() => exportDataJSON(items)}
-        onOpenCloudSync={() => setIsCloudModalOpen(true)}
         totalCount={items.length}
       />
 
-      {/* Segmented Control 4 Tabs */}
-      <TabNavigation
-        activeTab={activeTab}
-        onTabChange={(tab) => {
-          setActiveTab(tab);
-          setSelectedTag(null);
-        }}
-        itemCounts={itemCounts}
-      />
+      <div className="app-shell">
+        {/* 4-column tab cards */}
+        <TabNavigation
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
+          itemCounts={itemCounts}
+        />
 
-      {/* Search & Tags */}
-      <SearchAndFilter
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        availableTags={currentTabTags}
-        selectedTag={selectedTag}
-        onSelectTag={setSelectedTag}
-        showOnlyFavorites={showOnlyFavorites}
-        onToggleFavorites={() => setShowOnlyFavorites((prev) => !prev)}
-        totalFilteredCount={filteredItems.length}
-      />
+        {/* Search */}
+        <SearchBar
+          searchQuery={searchQuery}
+          onSearchChange={(q) => { setSearchQuery(q); setSelectedItem(null); }}
+        />
 
-      {/* Items Grid List */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 mt-4">
-        {filteredItems.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredItems.map((item) => (
-              <ItemCard
-                key={item.id}
-                item={item}
-                onSelect={setSelectedItemForDetail}
-                onEdit={(it) => {
-                  setItemForEditing(it);
-                  setIsEditModalOpen(true);
-                }}
-                onDelete={handleDeleteItem}
-                onToggleFavorite={handleToggleFavorite}
+        {/* Section meta */}
+        <div className="content-section">
+          <div className="section-meta">
+            <span className="section-title">
+              <span style={{ color: catInfo.color }}>●</span>
+              {catInfo.name}
+            </span>
+            <span className="section-count">
+              {filteredItems.length} 筆{searchQuery ? ' 搜尋結果' : ' 筆記'}
+            </span>
+          </div>
+
+          {/* Notes Grid */}
+          {filteredItems.length > 0 ? (
+            <div className="notes-grid">
+              {filteredItems.map((item) => (
+                <NoteCard
+                  key={item.id}
+                  item={item}
+                  isSelected={selectedItem?.id === item.id}
+                  onSelect={handleSelectCard}
+                  onEdit={openEditFor}
+                  onDelete={handleDeleteItem}
+                  onToggleFavorite={handleToggleFavorite}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state">
+              <div className="empty-state-icon">🗂️</div>
+              <div className="empty-state-title">
+                {searchQuery ? '找不到相符的筆記' : '尚未有任何筆記'}
+              </div>
+              <div className="empty-state-desc">
+                {searchQuery ? `試試其他關鍵字` : '點下方按鈕新增你的第一筆資料'}
+              </div>
+              {!searchQuery && (
+                <button className="btn btn-green" onClick={() => { setItemForEditing(null); setIsEditModalOpen(true); }}>
+                  <Plus size={14} /> 新增資料
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Inline Detail Panel - shown below the grid */}
+          {selectedItem && (
+            <div ref={detailRef} style={{ marginTop: 20 }}>
+              <InlineDetailPanel
+                item={selectedItem}
+                onClose={() => setSelectedItem(null)}
+                onEdit={(it) => { openEditFor(it); }}
               />
-            ))}
-          </div>
-        ) : (
-          <div className="clean-card p-12 text-center max-w-sm mx-auto my-12 space-y-3">
-            <FolderOpen className="w-10 h-10 mx-auto text-slate-500" />
-            <p className="text-slate-300 font-semibold text-sm">尚無相關項目</p>
-            <button
-              onClick={() => {
-                setItemForEditing(null);
-                setIsEditModalOpen(true);
-              }}
-              className="btn-primary text-xs mx-auto"
-            >
-              <Plus className="w-4 h-4" /> 新增資料
-            </button>
-          </div>
-        )}
-      </main>
+            </div>
+          )}
+        </div>
+      </div>
 
-      {/* Detail Modal */}
-      <ItemDetailModal
-        item={selectedItemForDetail}
-        onClose={() => setSelectedItemForDetail(null)}
-        onEdit={(itemToEdit) => {
-          setSelectedItemForDetail(null);
-          setItemForEditing(itemToEdit);
-          setIsEditModalOpen(true);
-        }}
-      />
-
-      {/* Create / Edit Modal */}
+      {/* Edit / New Modal */}
       <EditItemModal
         item={itemForEditing}
         defaultCategory={activeTab}
@@ -220,14 +195,6 @@ export default function HomePage() {
         onClose={() => setIsEditModalOpen(false)}
         onSave={handleSaveItem}
       />
-
-      {/* Cloud Sync & Permanent Database Setup */}
-      <CloudSyncModal
-        isOpen={isCloudModalOpen}
-        onClose={() => setIsCloudModalOpen(false)}
-        onImportJSON={handleImportJSON}
-        onResetDefault={() => handlePersistItems(INITIAL_ITEMS)}
-      />
-    </div>
+    </>
   );
 }
