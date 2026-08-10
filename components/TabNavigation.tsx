@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { CATEGORIES, CategoryType } from '@/lib/types';
-import { Apple, Briefcase, Droplets, Wind } from 'lucide-react';
+import { Apple, Droplets, Wind, Briefcase } from 'lucide-react';
 
 interface TabNavigationProps {
   activeTab: CategoryType;
@@ -10,12 +10,20 @@ interface TabNavigationProps {
   itemCounts: Record<CategoryType, number>;
 }
 
-const renderIcon = (iconName: string) => {
-  const props = { size: 24, strokeWidth: 2.1 };
-  if (iconName === 'Droplets') return <Droplets {...props} />;
-  if (iconName === 'Wind') return <Wind {...props} />;
-  if (iconName === 'Briefcase') return <Briefcase {...props} />;
-  return <Apple {...props} />;
+const renderIcon = (iconName: string, active: boolean) => {
+  const iconProps = { className: 'w-4 h-4' };
+  switch (iconName) {
+    case 'Apple':
+      return <Apple {...iconProps} />;
+    case 'Droplets':
+      return <Droplets {...iconProps} />;
+    case 'Wind':
+      return <Wind {...iconProps} />;
+    case 'Briefcase':
+      return <Briefcase {...iconProps} />;
+    default:
+      return <Apple {...iconProps} />;
+  }
 };
 
 export const TabNavigation: React.FC<TabNavigationProps> = ({
@@ -24,30 +32,35 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({
   itemCounts,
 }) => {
   return (
-    <div className="container tabs-wrap">
-      <nav className="tabs tabs-large" aria-label="categories">
+    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 pt-5 pb-2">
+      <div className="bg-slate-900/90 p-1.5 rounded-2xl border border-white/10 grid grid-cols-2 md:grid-cols-4 gap-1.5">
         {CATEGORIES.map((cat) => {
           const isActive = activeTab === cat.id;
+          const count = itemCounts[cat.id] || 0;
+
           return (
             <button
               key={cat.id}
-              type="button"
               onClick={() => onTabChange(cat.id)}
-              className={`tab-btn tab-card ${isActive ? 'active' : ''}`}
-              aria-pressed={isActive}
+              className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl font-semibold text-sm transition-all cursor-pointer ${
+                isActive
+                  ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
             >
-              <span className="tab-icon tab-icon-large" style={{ color: cat.color }}>
-                {renderIcon(cat.iconName)}
+              {renderIcon(cat.iconName, isActive)}
+              <span>{cat.name}</span>
+              <span
+                className={`text-xs px-2 py-0.5 rounded-full ${
+                  isActive ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-500'
+                }`}
+              >
+                {count}
               </span>
-              <span className="tab-copy">
-                <span className="tab-title">{cat.name}</span>
-                <span className="tab-desc">{cat.description}</span>
-              </span>
-              <span className="count-pill">{itemCounts[cat.id] || 0}</span>
             </button>
           );
         })}
-      </nav>
+      </div>
     </div>
   );
 };

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { DatabaseItem } from '@/lib/types';
-import { Star, Copy, Edit2, Trash2, Check, ArrowRight, Paperclip } from 'lucide-react';
+import { Star, Copy, Edit2, Trash2, Check, ArrowRight } from 'lucide-react';
 
 interface ItemCardProps {
   item: DatabaseItem;
@@ -39,18 +39,9 @@ export const ItemCard: React.FC<ItemCardProps> = ({
       <div>
         {/* Header: Subcategory & Favorite */}
         <div className="flex items-center justify-between gap-2 mb-2">
-          <div className="flex items-center gap-1.5">
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              {item.subcategory}
-            </span>
-            {item.attachments && item.attachments.length > 0 && (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 flex items-center gap-1">
-                <Paperclip className="w-3 h-3" />
-                {item.attachments.length} 檔案
-              </span>
-            )}
-          </div>
-
+          <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            {item.subcategory}
+          </span>
           <button
             onClick={(e) => {
               e.stopPropagation();

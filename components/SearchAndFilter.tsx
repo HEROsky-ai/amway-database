@@ -34,7 +34,7 @@ export const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
             type="text"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="搜尋產品名稱、成分、常見問答 QA、檔案名稱..."
+            placeholder="搜尋產品名稱、成分、常見問答 QA..."
             className="w-full pl-10 pr-9 py-2 bg-slate-900 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 text-sm"
           />
           {searchQuery && (

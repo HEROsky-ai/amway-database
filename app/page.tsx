@@ -26,6 +26,7 @@ export default function HomePage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isCloudModalOpen, setIsCloudModalOpen] = useState(false);
 
+  // 初次載入資料
   useEffect(() => {
     loadItems().then((loaded) => {
       if (loaded && loaded.length > 0) {
@@ -34,6 +35,7 @@ export default function HomePage() {
     });
   }, []);
 
+  // 計算每個分類數量
   const itemCounts = useMemo(() => {
     const counts: Record<CategoryType, number> = {
       nutrition: 0,
@@ -49,6 +51,7 @@ export default function HomePage() {
     return counts;
   }, [items]);
 
+  // 當前頁籤熱門標籤
   const currentTabTags = useMemo(() => {
     const tabItems = items.filter((i) => i.category === activeTab);
     const tagSet = new Set<string>();
@@ -58,6 +61,7 @@ export default function HomePage() {
     return Array.from(tagSet);
   }, [items, activeTab]);
 
+  // 過濾邏輯
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
       if (item.category !== activeTab) return false;
@@ -74,9 +78,8 @@ export default function HomePage() {
         const inQA = item.qa?.some(
           (qa) => qa.question.toLowerCase().includes(q) || qa.answer.toLowerCase().includes(q)
         );
-        const inFiles = item.attachments?.some((f) => f.name.toLowerCase().includes(q));
 
-        if (!inTitle && !inSummary && !inContent && !inSubcat && !inTags && !inQA && !inFiles) {
+        if (!inTitle && !inSummary && !inContent && !inSubcat && !inTags && !inQA) {
           return false;
         }
       }

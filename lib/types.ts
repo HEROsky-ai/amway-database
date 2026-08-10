@@ -14,8 +14,8 @@ export interface FileAttachment {
   id: string;
   name: string;
   url: string;
-  size: number; // Bytes
-  type: string; // MIME type
+  size: number;
+  type: string;
 }
 
 export interface DatabaseItem {
@@ -79,11 +79,11 @@ export const CATEGORIES: CategoryInfo[] = [
   },
 ];
 
-// 500 MB 最高檔案限制 (0.5 GB)
-export const MAX_FILE_SIZE_BYTES = 500 * 1024 * 1024; // 524,288,000 bytes
+// 500 MB 單檔上限 (0.5 GB)
+export const MAX_FILE_SIZE_BYTES = 500 * 1024 * 1024;
 
 export const formatFileSize = (bytes: number): string => {
-  if (bytes === 0) return '0 B';
+  if (!bytes || bytes === 0) return '0 B';
   const k = 1024;
   const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
