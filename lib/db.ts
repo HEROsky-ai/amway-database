@@ -61,7 +61,11 @@ export const loadItems = async (): Promise<DatabaseItem[]> => {
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
+        try {
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
+        } catch (err) {
+          console.warn('Local cache skipped because the dataset is too large.', err);
+        }
         return data;
       }
     }

@@ -10,6 +10,14 @@ export interface LinkItem {
   url: string;
 }
 
+export interface AttachmentItem {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  dataUrl: string;
+}
+
 export interface DatabaseItem {
   id: string;
   title: string;
@@ -21,6 +29,7 @@ export interface DatabaseItem {
   highlights?: string[];
   qa?: QAItem[];
   links?: LinkItem[];
+  attachments?: AttachmentItem[];
   imageUrl?: string;
   imageText?: string;
   isFavorite?: boolean;

@@ -61,6 +61,7 @@ export default function HomePage() {
         item.content,
         item.imageText || '',
         item.imageUrl || '',
+        ...(item.attachments || []).flatMap((file) => [file.name, file.type]),
         ...item.tags,
         ...(item.highlights || []),
         ...(item.links || []).flatMap((link) => [link.label, link.url]),

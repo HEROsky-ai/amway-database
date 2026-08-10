@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { CATEGORIES, CategoryType, DatabaseItem, QAItem } from '@/lib/types';
-import { HelpCircle, Image as ImageIcon, Layers, Plus, Save, Sparkles, Trash2, X } from 'lucide-react';
+import { AttachmentItem, CATEGORIES, CategoryType, DatabaseItem, QAItem } from '@/lib/types';
+import { FileUp, HelpCircle, Image as ImageIcon, Layers, Plus, Save, Sparkles, Trash2, X } from 'lucide-react';
 
 const text = {
   edit: '\u7de8\u8f2f\u7b46\u8a18',
@@ -20,6 +20,11 @@ const text = {
   contentPlaceholder: '\u8f38\u5165\u5b8c\u6574\u8aaa\u660e\u3001\u8a71\u8853\u3001\u6d41\u7a0b\u6216\u6ce8\u610f\u4e8b\u9805',
   imageText: '\u5716\u7247\u6587\u5b57',
   imageTextPlaceholder: '\u5982\u679c\u5716\u7247\u4e0a\u6709\u6587\u5b57\uff0c\u8acb\u8cbc\u5728\u9019\u88e1\uff0c\u641c\u5c0b\u6642\u6703\u4e00\u8d77\u627e\u5230',
+  attachments: '\u9644\u52a0\u6a94\u6848',
+  attachmentsHelp: '\u652f\u63f4 PDF\u3001PowerPoint \u548c\u5716\u7247\u6a94\u3002\u5716\u7247\u6703\u5728\u8a73\u60c5\u4e2d\u9810\u89bd\uff0cPDF/PPT \u53ef\u958b\u555f\u6216\u4e0b\u8f09\u3002',
+  chooseFiles: '\u9078\u64c7\u6a94\u6848',
+  fileTooLarge: '\u55ae\u500b\u6a94\u6848\u4e0d\u80fd\u8d85\u904e 8MB\u3002',
+  fileReadFailed: '\u6a94\u6848\u8b80\u53d6\u5931\u6557\uff0c\u8acb\u91cd\u65b0\u9078\u64c7\u3002',
   highlights: '\u91cd\u9ede\u6574\u7406',
   addHighlight: '\u65b0\u589e\u91cd\u9ede',
   highlightPlaceholder: '\u8f38\u5165\u4e00\u500b\u53ef\u76f4\u63a5\u8907\u88fd\u4f7f\u7528\u7684\u91cd\u9ede',
@@ -55,6 +60,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
   const [summary, setSummary] = useState('');
   const [content, setContent] = useState('');
   const [imageText, setImageText] = useState('');
+  const [attachments, setAttachments] = useState<AttachmentItem[]>([]);
   const [highlights, setHighlights] = useState<string[]>(['']);
   const [qaList, setQaList] = useState<QAItem[]>([{ question: '', answer: '' }]);
 
@@ -68,6 +74,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
       setSummary(item.summary || '');
       setContent(item.content || '');
       setImageText(item.imageText || '');
+      setAttachments(item.attachments || []);
       setHighlights(item.highlights?.length ? item.highlights : ['']);
       setQaList(item.qa?.length ? item.qa : [{ question: '', answer: '' }]);
       return;
@@ -79,11 +86,50 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
     setSummary('');
     setContent('');
     setImageText('');
+    setAttachments([]);
     setHighlights(['']);
     setQaList([{ question: '', answer: '' }]);
   }, [defaultCategory, isOpen, item]);
 
   if (!isOpen) return null;
+
+  const handleFilesSelected = async (fileList: FileList | null) => {
+    if (!fileList?.length) return;
+
+    const maxFileSize = 8 * 1024 * 1024;
+    const files = Array.from(fileList);
+    const nextAttachments: AttachmentItem[] = [];
+
+    for (const file of files) {
+      if (file.size > maxFileSize) {
+        window.alert(`${file.name}: ${text.fileTooLarge}`);
+        continue;
+      }
+
+      try {
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result || ''));
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(file);
+        });
+
+        nextAttachments.push({
+          id: `file-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          name: file.name,
+          type: file.type || 'application/octet-stream',
+          size: file.size,
+          dataUrl,
+        });
+      } catch {
+        window.alert(`${file.name}: ${text.fileReadFailed}`);
+      }
+    }
+
+    if (nextAttachments.length > 0) {
+      setAttachments((current) => [...current, ...nextAttachments]);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,6 +148,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
       summary: summary.trim(),
       content: content.trim(),
       imageText: imageText.trim(),
+      attachments,
       highlights: highlights.map((h) => h.trim()).filter(Boolean),
       qa: qaList.filter((qa) => qa.question.trim() && qa.answer.trim()),
       links: item?.links || [],
@@ -173,6 +220,53 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
               {text.imageText}
             </label>
             <textarea className="textarea" rows={3} value={imageText} onChange={(e) => setImageText(e.target.value)} placeholder={text.imageTextPlaceholder} />
+          </div>
+
+          <div className="section">
+            <div className="form-row-between">
+              <div>
+                <label className="label">
+                  <FileUp size={16} color="var(--primary)" />
+                  {text.attachments}
+                </label>
+                <p className="help-text" style={{ marginTop: 4 }}>{text.attachmentsHelp}</p>
+              </div>
+              <label className="btn-secondary">
+                <Plus size={15} />
+                <span>{text.chooseFiles}</span>
+                <input
+                  type="file"
+                  multiple
+                  accept="application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,image/*,.pdf,.ppt,.pptx"
+                  onChange={(e) => {
+                    handleFilesSelected(e.target.files);
+                    e.target.value = '';
+                  }}
+                  hidden
+                />
+              </label>
+            </div>
+
+            {attachments.length > 0 && (
+              <div className="attachment-list" style={{ marginTop: 12 }}>
+                {attachments.map((attachment) => (
+                  <div className="attachment-row" key={attachment.id}>
+                    <div className="attachment-info">
+                      <span className="attachment-name">{attachment.name}</span>
+                      <span className="attachment-meta">{Math.ceil(attachment.size / 1024)} KB</span>
+                    </div>
+                    <button
+                      className="btn-danger"
+                      type="button"
+                      onClick={() => setAttachments(attachments.filter((file) => file.id !== attachment.id))}
+                    >
+                      <Trash2 size={15} />
+                      <span>{text.remove}</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="section">

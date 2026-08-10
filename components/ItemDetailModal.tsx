@@ -7,6 +7,7 @@ import {
   Copy,
   Edit2,
   ExternalLink,
+  FileText,
   HelpCircle,
   Image as ImageIcon,
   Link,
@@ -22,7 +23,9 @@ const text = {
   highlights: '\u91cd\u9ede\u6574\u7406',
   qa: '\u5e38\u898b\u554f\u7b54',
   imageText: '\u5716\u7247\u6587\u5b57',
+  attachments: '\u9644\u52a0\u6a94\u6848',
   links: '\u76f8\u95dc\u9023\u7d50',
+  openFile: '\u958b\u555f\u6a94\u6848',
   copy: '\u8907\u88fd\u5168\u90e8',
   copied: '\u5df2\u8907\u88fd',
   edit: '\u7de8\u8f2f',
@@ -151,6 +154,41 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, onClose,
               {text.imageText}
             </h3>
             <p className="section-copy">{item.imageText}</p>
+          </section>
+        )}
+
+        {!!item.attachments?.length && (
+          <section className="section detail-attachments">
+            <h3 className="section-title">
+              <FileText size={17} color="var(--primary)" />
+              {text.attachments}
+            </h3>
+            <div className="attachment-grid">
+              {item.attachments.map((attachment) => {
+                const isImage = attachment.type.startsWith('image/');
+                return (
+                  <a
+                    className="attachment-card"
+                    href={attachment.dataUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    download={attachment.name}
+                    key={attachment.id}
+                    title={text.openFile}
+                  >
+                    {isImage ? (
+                      <img src={attachment.dataUrl} alt={attachment.name} className="attachment-preview" />
+                    ) : (
+                      <span className="attachment-file-icon">
+                        <FileText size={24} />
+                      </span>
+                    )}
+                    <span className="attachment-name">{attachment.name}</span>
+                    <span className="attachment-meta">{Math.ceil(attachment.size / 1024)} KB</span>
+                  </a>
+                );
+              })}
+            </div>
           </section>
         )}
 
