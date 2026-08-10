@@ -10,12 +10,12 @@ export interface LinkItem {
   url: string;
 }
 
-export interface AttachmentItem {
+export interface FileAttachment {
   id: string;
   name: string;
-  type: string;
-  size: number;
-  dataUrl: string;
+  url: string;
+  size: number; // Bytes
+  type: string; // MIME type
 }
 
 export interface DatabaseItem {
@@ -29,9 +29,8 @@ export interface DatabaseItem {
   highlights?: string[];
   qa?: QAItem[];
   links?: LinkItem[];
-  attachments?: AttachmentItem[];
+  attachments?: FileAttachment[];
   imageUrl?: string;
-  imageText?: string;
   isFavorite?: boolean;
   updatedAt: string;
 }
@@ -42,35 +41,51 @@ export interface CategoryInfo {
   iconName: string;
   description: string;
   color: string;
+  bgGradient: string;
 }
 
 export const CATEGORIES: CategoryInfo[] = [
   {
     id: 'nutrition',
-    name: '\u71df\u990a\u4fdd\u5065',
+    name: '營養保健',
     iconName: 'Apple',
-    description: '\u7522\u54c1\u91cd\u9ede\u8207\u65e5\u5e38\u4fdd\u990a\u7b46\u8a18',
-    color: '#087f5b',
+    description: '鈕崔萊 Nutrilite 核心保健、維生素與成分全解析',
+    color: '#10b981',
+    bgGradient: 'from-emerald-500/10 to-teal-500/5',
   },
   {
     id: 'water',
-    name: '\u6de8\u6c34\u79d1\u6280',
+    name: '淨水器',
     iconName: 'Droplets',
-    description: 'eSpring \u8207\u98f2\u6c34\u76f8\u95dc\u8cc7\u6599',
-    color: '#0b7891',
+    description: 'eSpring 益之源淨水器規格、濾心維護與故障排除',
+    color: '#06b6d4',
+    bgGradient: 'from-cyan-500/10 to-blue-500/5',
   },
   {
     id: 'air',
-    name: '\u7a7a\u6c23\u54c1\u8cea',
+    name: '空氣清淨機',
     iconName: 'Wind',
-    description: '\u7a7a\u6c23\u6e05\u6de8\u8207\u5c45\u5bb6\u74b0\u5883',
-    color: '#4f46e5',
+    description: 'Atmosphere 逸新清淨機 HEPA 技術、效能與保養',
+    color: '#6366f1',
+    bgGradient: 'from-indigo-500/10 to-violet-500/5',
   },
   {
     id: 'business',
-    name: '\u4e8b\u696d\u7d93\u71df',
+    name: '事業與起步',
     iconName: 'Briefcase',
-    description: '\u9080\u7d04\u3001\u8ddf\u9032\u8207\u670d\u52d9\u7b46\u8a18',
-    color: '#b7791f',
+    description: '獎金制度、新手起步 90 天心法與溝通應答庫',
+    color: '#f59e0b',
+    bgGradient: 'from-amber-500/10 to-orange-500/5',
   },
 ];
+
+// 500 MB 最高檔案限制 (0.5 GB)
+export const MAX_FILE_SIZE_BYTES = 500 * 1024 * 1024; // 524,288,000 bytes
+
+export const formatFileSize = (bytes: number): string => {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};

@@ -1,43 +1,31 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { AttachmentItem, CATEGORIES, CategoryType, DatabaseItem, QAItem } from '@/lib/types';
-import { FileUp, HelpCircle, Image as ImageIcon, Layers, Plus, Save, Sparkles, Trash2, X } from 'lucide-react';
-
-const text = {
-  edit: '\u7de8\u8f2f\u7b46\u8a18',
-  add: '\u65b0\u589e\u7b46\u8a18',
-  intro: '\u4ee5\u6458\u8981\u3001\u8a73\u7d30\u5167\u5bb9\u3001\u91cd\u9ede\u8207 Q&A \u7d44\u6210\u4e00\u5247\u597d\u641c\u5c0b\u7684\u7b46\u8a18\u3002',
-  close: '\u95dc\u9589',
-  category: '\u5206\u985e',
-  subcategory: '\u5b50\u5206\u985e',
-  subcategoryPlaceholder: '\u4f8b\u5982\uff1aDouble X\u3001eSpring\u3001\u9080\u7d04\u8a71\u8853',
-  title: '\u6a19\u984c',
-  titlePlaceholder: '\u8f38\u5165\u9019\u7b46\u7b46\u8a18\u7684\u4e3b\u984c',
-  summary: '\u4e00\u53e5\u8a71\u6458\u8981',
-  summaryPlaceholder: '\u7528\u4e00\u53e5\u8a71\u8aaa\u660e\u9019\u7b46\u7b46\u8a18\u9069\u5408\u54ea\u500b\u60c5\u5883',
-  content: '\u8a73\u7d30\u5167\u5bb9',
-  contentPlaceholder: '\u8f38\u5165\u5b8c\u6574\u8aaa\u660e\u3001\u8a71\u8853\u3001\u6d41\u7a0b\u6216\u6ce8\u610f\u4e8b\u9805',
-  imageText: '\u5716\u7247\u6587\u5b57',
-  imageTextPlaceholder: '\u5982\u679c\u5716\u7247\u4e0a\u6709\u6587\u5b57\uff0c\u8acb\u8cbc\u5728\u9019\u88e1\uff0c\u641c\u5c0b\u6642\u6703\u4e00\u8d77\u627e\u5230',
-  attachments: '\u9644\u52a0\u6a94\u6848',
-  attachmentsHelp: '\u652f\u63f4 PDF\u3001PowerPoint \u548c\u5716\u7247\u6a94\u3002\u5716\u7247\u6703\u5728\u8a73\u60c5\u4e2d\u9810\u89bd\uff0cPDF/PPT \u53ef\u958b\u555f\u6216\u4e0b\u8f09\u3002',
-  chooseFiles: '\u9078\u64c7\u6a94\u6848',
-  fileTooLarge: '\u55ae\u500b\u6a94\u6848\u4e0d\u80fd\u8d85\u904e 8MB\u3002',
-  fileReadFailed: '\u6a94\u6848\u8b80\u53d6\u5931\u6557\uff0c\u8acb\u91cd\u65b0\u9078\u64c7\u3002',
-  highlights: '\u91cd\u9ede\u6574\u7406',
-  addHighlight: '\u65b0\u589e\u91cd\u9ede',
-  highlightPlaceholder: '\u8f38\u5165\u4e00\u500b\u53ef\u76f4\u63a5\u8907\u88fd\u4f7f\u7528\u7684\u91cd\u9ede',
-  qa: 'Q&A',
-  addQa: '\u65b0\u589e Q&A',
-  questionPlaceholder: '\u9867\u5ba2\u53ef\u80fd\u6703\u554f\u7684\u554f\u984c',
-  answerPlaceholder: '\u5efa\u8b70\u56de\u7b54',
-  remove: '\u79fb\u9664',
-  cancel: '\u53d6\u6d88',
-  save: '\u5132\u5b58\u7b46\u8a18',
-  missingTitle: '\u8acb\u5148\u8f38\u5165\u7b46\u8a18\u6a19\u984c\u3002',
-  general: '\u4e00\u822c\u7b46\u8a18',
-};
+import React, { useState, useEffect } from 'react';
+import {
+  DatabaseItem,
+  CategoryType,
+  CATEGORIES,
+  QAItem,
+  FileAttachment,
+  MAX_FILE_SIZE_BYTES,
+  formatFileSize,
+} from '@/lib/types';
+import { getCloudCredentials } from '@/lib/db';
+import {
+  X,
+  Plus,
+  Trash2,
+  Save,
+  Layers,
+  Tag,
+  Sparkles,
+  HelpCircle,
+  Paperclip,
+  FileText,
+  Upload,
+  AlertCircle,
+  File,
+} from 'lucide-react';
 
 interface EditItemModalProps {
   item: DatabaseItem | null;
@@ -59,101 +47,154 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
   const [title, setTitle] = useState('');
   const [summary, setSummary] = useState('');
   const [content, setContent] = useState('');
-  const [imageText, setImageText] = useState('');
-  const [attachments, setAttachments] = useState<AttachmentItem[]>([]);
+  const [tagsStr, setTagsStr] = useState('');
   const [highlights, setHighlights] = useState<string[]>(['']);
   const [qaList, setQaList] = useState<QAItem[]>([{ question: '', answer: '' }]);
+  const [attachments, setAttachments] = useState<FileAttachment[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isOpen) return;
-
     if (item) {
       setCategory(item.category);
       setSubcategory(item.subcategory || '');
       setTitle(item.title || '');
       setSummary(item.summary || '');
       setContent(item.content || '');
-      setImageText(item.imageText || '');
+      setTagsStr(item.tags ? item.tags.join(', ') : '');
+      setHighlights(item.highlights && item.highlights.length > 0 ? item.highlights : ['']);
+      setQaList(item.qa && item.qa.length > 0 ? item.qa : [{ question: '', answer: '' }]);
       setAttachments(item.attachments || []);
-      setHighlights(item.highlights?.length ? item.highlights : ['']);
-      setQaList(item.qa?.length ? item.qa : [{ question: '', answer: '' }]);
-      return;
+    } else {
+      setCategory(defaultCategory);
+      setSubcategory('');
+      setTitle('');
+      setSummary('');
+      setContent('');
+      setTagsStr('');
+      setHighlights(['']);
+      setQaList([{ question: '', answer: '' }]);
+      setAttachments([]);
     }
-
-    setCategory(defaultCategory);
-    setSubcategory('');
-    setTitle('');
-    setSummary('');
-    setContent('');
-    setImageText('');
-    setAttachments([]);
-    setHighlights(['']);
-    setQaList([{ question: '', answer: '' }]);
-  }, [defaultCategory, isOpen, item]);
+    setFileError(null);
+  }, [item, defaultCategory, isOpen]);
 
   if (!isOpen) return null;
 
-  const handleFilesSelected = async (fileList: FileList | null) => {
-    if (!fileList?.length) return;
+  // 上傳與處理檔案 (單檔上限 500MB / 0.5GB)
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
-    const maxFileSize = 8 * 1024 * 1024;
-    const files = Array.from(fileList);
-    const nextAttachments: AttachmentItem[] = [];
+    setFileError(null);
+    setUploading(true);
 
-    for (const file of files) {
-      if (file.size > maxFileSize) {
-        window.alert(`${file.name}: ${text.fileTooLarge}`);
-        continue;
+    const creds = getCloudCredentials();
+    const newAttachments: FileAttachment[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+
+      // 檢查單檔大小 (不超過 0.5 GB = 500 MB = 524,288,000 Bytes)
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        const sizeInMB = (file.size / (1024 * 1024)).toFixed(1);
+        setFileError(`❌ 檔案「${file.name}」大小為 ${sizeInMB} MB，已超過單檔上限 0.5 GB (500 MB)！`);
+        setUploading(false);
+        e.target.value = '';
+        return;
       }
 
       try {
-        const dataUrl = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(String(reader.result || ''));
-          reader.onerror = () => reject(reader.error);
-          reader.readAsDataURL(file);
-        });
+        let downloadUrl = '';
 
-        nextAttachments.push({
-          id: `file-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        // 1. 若設定了 Supabase，上傳至 Supabase Storage
+        if (creds.url && creds.key) {
+          const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+          const res = await fetch(`${creds.url}/storage/v1/object/amway-files/${fileName}`, {
+            method: 'POST',
+            headers: {
+              apikey: creds.key,
+              Authorization: `Bearer ${creds.key}`,
+              'Content-Type': file.type || 'application/octet-stream',
+            },
+            body: file,
+          });
+
+          if (res.ok) {
+            downloadUrl = `${creds.url}/storage/v1/object/public/amway-files/${fileName}`;
+          }
+        }
+
+        // 2. 備用：建立 Blob 預覽網址
+        if (!downloadUrl) {
+          downloadUrl = URL.createObjectURL(file);
+        }
+
+        newAttachments.push({
+          id: `file-${Date.now()}-${i}`,
           name: file.name,
-          type: file.type || 'application/octet-stream',
+          url: downloadUrl,
           size: file.size,
-          dataUrl,
+          type: file.type || 'application/octet-stream',
         });
-      } catch {
-        window.alert(`${file.name}: ${text.fileReadFailed}`);
+      } catch (err) {
+        console.error('檔案處理失敗:', err);
       }
     }
 
-    if (nextAttachments.length > 0) {
-      setAttachments((current) => [...current, ...nextAttachments]);
-    }
+    setAttachments((prev) => [...prev, ...newAttachments]);
+    setUploading(false);
+    e.target.value = '';
+  };
+
+  const handleRemoveAttachment = (id: string) => {
+    setAttachments(attachments.filter((a) => a.id !== id));
+  };
+
+  const handleAddHighlight = () => setHighlights([...highlights, '']);
+  const handleUpdateHighlight = (index: number, val: string) => {
+    const copy = [...highlights];
+    copy[index] = val;
+    setHighlights(copy);
+  };
+  const handleRemoveHighlight = (index: number) => {
+    setHighlights(highlights.filter((_, i) => i !== index));
+  };
+
+  const handleAddQA = () => setQaList([...qaList, { question: '', answer: '' }]);
+  const handleUpdateQA = (index: number, field: 'question' | 'answer', val: string) => {
+    const copy = [...qaList];
+    copy[index][field] = val;
+    setQaList(copy);
+  };
+  const handleRemoveQA = (index: number) => {
+    setQaList(qaList.filter((_, i) => i !== index));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!title.trim()) {
-      window.alert(text.missingTitle);
+      alert('請填寫產品或內容標題');
       return;
     }
 
+    const cleanedTags = tagsStr
+      .split(/[,，]/)
+      .map((t) => t.trim())
+      .filter((t) => t.length > 0);
+
     const savedItem: DatabaseItem = {
-      id: item?.id || `item-${Date.now()}`,
+      id: item ? item.id : `item-${Date.now()}`,
       title: title.trim(),
       category,
-      subcategory: subcategory.trim() || text.general,
-      tags: item?.tags || [],
+      subcategory: subcategory.trim() || '通用資訊',
+      tags: cleanedTags,
       summary: summary.trim(),
       content: content.trim(),
-      imageText: imageText.trim(),
+      highlights: highlights.map((h) => h.trim()).filter((h) => h.length > 0),
+      qa: qaList.filter((q) => q.question.trim() && q.answer.trim()),
       attachments,
-      highlights: highlights.map((h) => h.trim()).filter(Boolean),
-      qa: qaList.filter((qa) => qa.question.trim() && qa.answer.trim()),
-      links: item?.links || [],
-      imageUrl: item?.imageUrl,
-      isFavorite: item?.isFavorite || false,
+      isFavorite: item ? item.isFavorite : false,
       updatedAt: new Date().toISOString(),
     };
 
@@ -162,26 +203,35 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
   };
 
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true">
-      <div className="modal">
-        <div className="modal-header">
-          <div>
-            <h2 className="modal-title">{item ? text.edit : text.add}</h2>
-            <p className="modal-subtitle">{text.intro}</p>
-          </div>
-          <button className="icon-btn" type="button" onClick={onClose} title={text.close}>
-            <X size={20} />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/80 backdrop-blur-sm animate-fade-in overflow-y-auto">
+      <div className="clean-modal w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden text-white my-auto">
+        
+        {/* Header */}
+        <div className="p-4 border-b border-white/10 flex items-center justify-between bg-slate-900">
+          <h2 className="text-base font-bold flex items-center gap-2">
+            <Save className="w-4 h-4 text-emerald-400" />
+            <span>{item ? '編輯資料條目' : '新增資料條目'}</span>
+          </h2>
+          <button onClick={onClose} className="p-1 text-slate-400 hover:text-white">
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        <form className="modal-body form-stack" onSubmit={handleSubmit}>
-          <div className="form-grid">
-            <div className="form-group">
-              <label className="label">
-                <Layers size={16} color="var(--primary)" />
-                {text.category}
+        {/* Body */}
+        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-4 flex-1 text-xs">
+          
+          {/* Category & Subcategory */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block font-semibold text-slate-300 mb-1 flex items-center gap-1">
+                <Layers className="w-3.5 h-3.5 text-emerald-400" />
+                所屬分類頁籤 *
               </label>
-              <select className="select" value={category} onChange={(e) => setCategory(e.target.value as CategoryType)}>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value as CategoryType)}
+                className="w-full px-3 py-2 bg-slate-900 border border-white/10 rounded-xl text-white focus:outline-none focus:border-emerald-500"
+              >
                 {CATEGORIES.map((cat) => (
                   <option key={cat.id} value={cat.id}>
                     {cat.name}
@@ -190,78 +240,118 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
               </select>
             </div>
 
-            <div className="form-group">
-              <label className="label">{text.subcategory}</label>
-              <input className="field" value={subcategory} onChange={(e) => setSubcategory(e.target.value)} placeholder={text.subcategoryPlaceholder} />
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label className="label">{text.title} *</label>
-            <input className="field" required value={title} onChange={(e) => setTitle(e.target.value)} placeholder={text.titlePlaceholder} />
-          </div>
-
-          <div className="form-group">
-            <label className="label">
-              <Sparkles size={16} color="var(--amber)" />
-              {text.summary}
-            </label>
-            <input className="field" value={summary} onChange={(e) => setSummary(e.target.value)} placeholder={text.summaryPlaceholder} />
-          </div>
-
-          <div className="form-group">
-            <label className="label">{text.content}</label>
-            <textarea className="textarea" rows={6} value={content} onChange={(e) => setContent(e.target.value)} placeholder={text.contentPlaceholder} />
-          </div>
-
-          <div className="form-group">
-            <label className="label">
-              <ImageIcon size={16} color="var(--indigo)" />
-              {text.imageText}
-            </label>
-            <textarea className="textarea" rows={3} value={imageText} onChange={(e) => setImageText(e.target.value)} placeholder={text.imageTextPlaceholder} />
-          </div>
-
-          <div className="section">
-            <div className="form-row-between">
-              <div>
-                <label className="label">
-                  <FileUp size={16} color="var(--primary)" />
-                  {text.attachments}
-                </label>
-                <p className="help-text" style={{ marginTop: 4 }}>{text.attachmentsHelp}</p>
-              </div>
-              <label className="btn-secondary">
-                <Plus size={15} />
-                <span>{text.chooseFiles}</span>
-                <input
-                  type="file"
-                  multiple
-                  accept="application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,image/*,.pdf,.ppt,.pptx"
-                  onChange={(e) => {
-                    handleFilesSelected(e.target.files);
-                    e.target.value = '';
-                  }}
-                  hidden
-                />
+            <div>
+              <label className="block font-semibold text-slate-300 mb-1">
+                子分類 (如: 核心保養/機型比較)
               </label>
+              <input
+                type="text"
+                value={subcategory}
+                onChange={(e) => setSubcategory(e.target.value)}
+                placeholder="例如：基礎營養 / 故障排除"
+                className="w-full px-3 py-2 bg-slate-900 border border-white/10 rounded-xl text-white placeholder-slate-500"
+              />
+            </div>
+          </div>
+
+          {/* Title */}
+          <div>
+            <label className="block font-semibold text-slate-300 mb-1">
+              標題名稱 *
+            </label>
+            <input
+              type="text"
+              required
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="輸入產品或問答標題..."
+              className="w-full px-3 py-2 bg-slate-900 border border-white/10 rounded-xl text-white placeholder-slate-500"
+            />
+          </div>
+
+          {/* Summary */}
+          <div>
+            <label className="block font-semibold text-slate-300 mb-1 flex items-center gap-1">
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              一句話重點摘要
+            </label>
+            <input
+              type="text"
+              value={summary}
+              onChange={(e) => setSummary(e.target.value)}
+              placeholder="用於卡片列表顯示的簡短摘要"
+              className="w-full px-3 py-2 bg-slate-900 border border-white/10 rounded-xl text-white placeholder-slate-500"
+            />
+          </div>
+
+          {/* Detailed Content */}
+          <div>
+            <label className="block font-semibold text-slate-300 mb-1">
+              詳細說明內容
+            </label>
+            <textarea
+              rows={4}
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              placeholder="詳細產品資訊、規格說明或應答內容..."
+              className="w-full px-3 py-2 bg-slate-900 border border-white/10 rounded-xl text-white placeholder-slate-500 resize-y"
+            />
+          </div>
+
+          {/* File Attachments (0.5 GB Limit) */}
+          <div className="p-3 bg-slate-900/80 rounded-xl border border-white/10 space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="font-semibold text-slate-300 flex items-center gap-1.5">
+                <Paperclip className="w-4 h-4 text-cyan-400" />
+                上傳檔案附件 (簡報、PDF、影片、文檔)
+              </label>
+              <span className="text-[11px] text-emerald-400 font-bold px-2 py-0.5 bg-emerald-500/10 rounded border border-emerald-500/20">
+                單檔上限 0.5 GB (500 MB)
+              </span>
             </div>
 
+            {/* Error banner */}
+            {fileError && (
+              <div className="p-2.5 bg-rose-500/20 text-rose-300 border border-rose-500/40 rounded-lg flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{fileError}</span>
+              </div>
+            )}
+
+            {/* Upload Button */}
+            <label className="button-secondary text-xs cursor-pointer inline-flex items-center gap-1.5">
+              <Upload className="w-3.5 h-3.5 text-cyan-400" />
+              <span>{uploading ? '檔案處理中...' : '選擇檔案上傳 (不超過 500 MB)'}</span>
+              <input
+                type="file"
+                multiple
+                disabled={uploading}
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+            </label>
+
+            {/* Uploaded File List */}
             {attachments.length > 0 && (
-              <div className="attachment-list" style={{ marginTop: 12 }}>
-                {attachments.map((attachment) => (
-                  <div className="attachment-row" key={attachment.id}>
-                    <div className="attachment-info">
-                      <span className="attachment-name">{attachment.name}</span>
-                      <span className="attachment-meta">{Math.ceil(attachment.size / 1024)} KB</span>
+              <div className="space-y-1.5 pt-2">
+                {attachments.map((file) => (
+                  <div
+                    key={file.id}
+                    className="p-2 bg-slate-950 rounded-lg border border-white/5 flex items-center justify-between text-xs"
+                  >
+                    <div className="flex items-center gap-2 overflow-hidden">
+                      <File className="w-4 h-4 text-cyan-400 shrink-0" />
+                      <span className="truncate text-slate-200 font-medium">{file.name}</span>
+                      <span className="text-slate-500 text-[11px]">
+                        ({formatFileSize(file.size)})
+                      </span>
                     </div>
                     <button
-                      className="btn-danger"
                       type="button"
-                      onClick={() => setAttachments(attachments.filter((file) => file.id !== attachment.id))}
+                      onClick={() => handleRemoveAttachment(file.id)}
+                      className="text-slate-400 hover:text-rose-400 p-1"
                     >
-                      <Trash2 size={15} />
-                      <span>{text.remove}</span>
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 ))}
@@ -269,31 +359,35 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
             )}
           </div>
 
-          <div className="section">
-            <div className="form-row-between">
-              <label className="label">{text.highlights}</label>
-              <button className="btn-secondary" type="button" onClick={() => setHighlights([...highlights, ''])}>
-                <Plus size={15} />
-                <span>{text.addHighlight}</span>
+          {/* Highlights */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="font-semibold text-slate-300">核心亮點清單</label>
+              <button
+                type="button"
+                onClick={handleAddHighlight}
+                className="text-xs text-emerald-400 flex items-center gap-1"
+              >
+                <Plus className="w-3 h-3" /> 新增亮點
               </button>
             </div>
-            <div className="form-stack" style={{ marginTop: 10 }}>
-              {highlights.map((highlight, index) => (
-                <div className="inline-input-row" key={index}>
-                  <span className="help-text">{index + 1}.</span>
+            <div className="space-y-1.5">
+              {highlights.map((h, i) => (
+                <div key={i} className="flex items-center gap-2">
                   <input
-                    className="field"
-                    value={highlight}
-                    onChange={(e) => {
-                      const next = [...highlights];
-                      next[index] = e.target.value;
-                      setHighlights(next);
-                    }}
-                    placeholder={text.highlightPlaceholder}
+                    type="text"
+                    value={h}
+                    onChange={(e) => handleUpdateHighlight(i, e.target.value)}
+                    placeholder={`亮點 ${i + 1}`}
+                    className="flex-1 px-3 py-1.5 bg-slate-900 border border-white/10 rounded-lg text-white"
                   />
                   {highlights.length > 1 && (
-                    <button className="icon-btn" type="button" onClick={() => setHighlights(highlights.filter((_, i) => i !== index))} title={text.remove}>
-                      <Trash2 size={16} />
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveHighlight(i)}
+                      className="text-slate-400 hover:text-rose-400"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </div>
@@ -301,65 +395,82 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
             </div>
           </div>
 
-          <div className="section">
-            <div className="form-row-between">
-              <label className="label">
-                <HelpCircle size={16} color="var(--cyan)" />
-                {text.qa}
+          {/* QA Section */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="font-semibold text-slate-300 flex items-center gap-1">
+                <HelpCircle className="w-3.5 h-3.5 text-cyan-400" />
+                常見問答 (Q&A)
               </label>
-              <button className="btn-secondary" type="button" onClick={() => setQaList([...qaList, { question: '', answer: '' }])}>
-                <Plus size={15} />
-                <span>{text.addQa}</span>
+              <button
+                type="button"
+                onClick={handleAddQA}
+                className="text-xs text-cyan-400 flex items-center gap-1"
+              >
+                <Plus className="w-3 h-3" /> 新增 QA
               </button>
             </div>
-            <div className="form-stack" style={{ marginTop: 10 }}>
-              {qaList.map((qa, index) => (
-                <div className="repeat-box form-stack" key={index}>
-                  <div className="form-row-between">
-                    <strong className="help-text">QA #{index + 1}</strong>
+            <div className="space-y-2">
+              {qaList.map((qa, idx) => (
+                <div key={idx} className="p-2.5 bg-slate-900 rounded-xl border border-white/5 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-cyan-400">QA #{idx + 1}</span>
                     {qaList.length > 1 && (
-                      <button className="btn-danger" type="button" onClick={() => setQaList(qaList.filter((_, i) => i !== index))}>
-                        <Trash2 size={15} />
-                        <span>{text.remove}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveQA(idx)}
+                        className="text-rose-400 p-0.5"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     )}
                   </div>
                   <input
-                    className="field"
+                    type="text"
                     value={qa.question}
-                    onChange={(e) => {
-                      const next = [...qaList];
-                      next[index] = { ...next[index], question: e.target.value };
-                      setQaList(next);
-                    }}
-                    placeholder={text.questionPlaceholder}
+                    onChange={(e) => handleUpdateQA(idx, 'question', e.target.value)}
+                    placeholder="問題..."
+                    className="w-full px-2.5 py-1 bg-slate-950 border border-white/10 rounded text-white"
                   />
                   <textarea
-                    className="textarea"
-                    rows={3}
+                    rows={2}
                     value={qa.answer}
-                    onChange={(e) => {
-                      const next = [...qaList];
-                      next[index] = { ...next[index], answer: e.target.value };
-                      setQaList(next);
-                    }}
-                    placeholder={text.answerPlaceholder}
+                    onChange={(e) => handleUpdateQA(idx, 'answer', e.target.value)}
+                    placeholder="回答內容..."
+                    className="w-full px-2.5 py-1 bg-slate-950 border border-white/10 rounded text-white resize-y"
                   />
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="modal-footer" style={{ margin: '6px -18px -18px' }}>
-            <button className="btn-secondary" type="button" onClick={onClose}>
-              {text.cancel}
+          {/* Tags */}
+          <div>
+            <label className="block font-semibold text-slate-300 mb-1 flex items-center gap-1">
+              <Tag className="w-3.5 h-3.5 text-indigo-400" />
+              標籤 (用逗號隔開)
+            </label>
+            <input
+              type="text"
+              value={tagsStr}
+              onChange={(e) => setTagsStr(e.target.value)}
+              placeholder="例如：Double X, 綜合維生素, 抗氧化"
+              className="w-full px-3 py-2 bg-slate-900 border border-white/10 rounded-xl text-white placeholder-slate-500"
+            />
+          </div>
+
+          {/* Submit */}
+          <div className="pt-3 border-t border-white/10 flex items-center justify-end gap-2">
+            <button type="button" onClick={onClose} className="btn-secondary">
+              取消
             </button>
-            <button className="btn-primary" type="submit">
-              <Save size={17} />
-              <span>{text.save}</span>
+            <button type="submit" className="btn-primary">
+              <Save className="w-4 h-4" /> 儲存資料
             </button>
           </div>
+
         </form>
+
       </div>
     </div>
   );
