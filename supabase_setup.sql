@@ -50,3 +50,23 @@ CREATE POLICY IF NOT EXISTS "allow_public_delete"
 
 -- 完成後可用此指令確認 table 存在：
 -- SELECT * FROM public.amway_items LIMIT 5;
+
+-- ============================================================
+-- 備份快照表（自動每日備份用）
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS public.amway_backups (
+  id          BIGSERIAL PRIMARY KEY,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  item_count  INTEGER NOT NULL DEFAULT 0,
+  data        JSONB NOT NULL DEFAULT '[]'
+);
+
+ALTER TABLE public.amway_backups ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY IF NOT EXISTS "allow_backup_read"   ON public.amway_backups FOR SELECT USING (true);
+CREATE POLICY IF NOT EXISTS "allow_backup_insert" ON public.amway_backups FOR INSERT WITH CHECK (true);
+CREATE POLICY IF NOT EXISTS "allow_backup_delete" ON public.amway_backups FOR DELETE USING (true);
+
+-- 查看最近備份：
+-- SELECT id, created_at, item_count FROM public.amway_backups ORDER BY created_at DESC LIMIT 10;
