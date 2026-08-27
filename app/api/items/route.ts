@@ -1,115 +1,95 @@
 import { NextResponse } from 'next/server';
-import { INITIAL_ITEMS } from '@/lib/initialData';
 import { DatabaseItem } from '@/lib/types';
 
 const SUPABASE_URL =
   process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const SUPABASE_KEY =
   process.env.SUPABASE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-const TABLE = 'amway_items';
 
-function getCredentials(request: Request) {
+// 使用 KV 表格：一列存所有資料（最簡單、最可靠）
+// SQL: CREATE TABLE amway_store (key text PRIMARY KEY, data jsonb, updated_at timestamptz DEFAULT now());
+const TABLE = 'amway_store';
+const ROW_KEY = 'items';
+
+function headers(extra: Record<string, string> = {}) {
   return {
-    url: request.headers.get('x-supabase-url') || SUPABASE_URL,
-    key: request.headers.get('x-supabase-key') || SUPABASE_KEY,
+    apikey: SUPABASE_KEY,
+    Authorization: `Bearer ${SUPABASE_KEY}`,
+    'Content-Type': 'application/json',
+    ...extra,
   };
 }
 
-async function fetchFromSupabase(url: string, key: string): Promise<DatabaseItem[] | null> {
-  if (!url || !key) return null;
+async function readFromSupabase(): Promise<DatabaseItem[] | null> {
+  if (!SUPABASE_URL || !SUPABASE_KEY) return null;
   try {
     const res = await fetch(
-      `${url}/rest/v1/${TABLE}?select=*&order=updatedAt.desc`,
-      {
-        headers: {
-          apikey: key,
-          Authorization: `Bearer ${key}`,
-        },
-        cache: 'no-store',
-      }
+      `${SUPABASE_URL}/rest/v1/${TABLE}?key=eq.${ROW_KEY}&select=data`,
+      { headers: headers(), cache: 'no-store' }
     );
-    if (res.ok) {
-      const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) return data as DatabaseItem[];
-    } else {
-      const err = await res.text();
-      console.error('Supabase GET error:', res.status, err);
-    }
-  } catch (err) {
-    console.error('Supabase fetch error:', err);
-  }
-  return null;
-}
-
-async function upsertToSupabase(
-  url: string,
-  key: string,
-  items: DatabaseItem[]
-): Promise<{ ok: boolean; error?: string }> {
-  if (!url || !key) return { ok: false, error: 'Missing credentials' };
-  try {
-    // Delete all then re-insert to guarantee sync state
-    await fetch(`${url}/rest/v1/${TABLE}?id=neq.null`, {
-      method: 'DELETE',
-      headers: {
-        apikey: key,
-        Authorization: `Bearer ${key}`,
-      },
-    });
-
-    const res = await fetch(`${url}/rest/v1/${TABLE}`, {
-      method: 'POST',
-      headers: {
-        apikey: key,
-        Authorization: `Bearer ${key}`,
-        'Content-Type': 'application/json',
-        Prefer: 'return=minimal',
-      },
-      body: JSON.stringify(items),
-    });
-
     if (!res.ok) {
-      const errText = await res.text();
-      console.error('Supabase POST error:', res.status, errText);
-      return { ok: false, error: errText };
+      console.error('Supabase GET error:', res.status, await res.text());
+      return null;
     }
-    return { ok: true };
+    const rows = await res.json();
+    if (Array.isArray(rows) && rows.length > 0 && Array.isArray(rows[0].data)) {
+      return rows[0].data as DatabaseItem[];
+    }
+    return null;
   } catch (err) {
-    console.error('Supabase upsert error:', err);
-    return { ok: false, error: String(err) };
+    console.error('Supabase read failed:', err);
+    return null;
   }
 }
 
-export async function GET(request: Request) {
-  const { url, key } = getCredentials(request);
-  const cloudItems = await fetchFromSupabase(url, key);
-  if (cloudItems) {
-    return NextResponse.json(cloudItems);
+async function writeToSupabase(items: DatabaseItem[]): Promise<boolean> {
+  if (!SUPABASE_URL || !SUPABASE_KEY) return false;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}`, {
+      method: 'POST',
+      headers: headers({ Prefer: 'resolution=merge-duplicates,return=minimal' }),
+      body: JSON.stringify({ key: ROW_KEY, data: items, updated_at: new Date().toISOString() }),
+    });
+    if (!res.ok) {
+      console.error('Supabase write error:', res.status, await res.text());
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Supabase write failed:', err);
+    return false;
   }
-  // Supabase unavailable — return initial data so UI doesn't break
-  return NextResponse.json(INITIAL_ITEMS);
+}
+
+export async function GET() {
+  const items = await readFromSupabase();
+  if (items !== null) {
+    return NextResponse.json({ ok: true, source: 'supabase', data: items });
+  }
+  // ← 重要：Supabase 失敗時回傳 503，不回傳假資料
+  return NextResponse.json(
+    { ok: false, source: 'unavailable', data: null },
+    { status: 503 }
+  );
 }
 
 export async function POST(request: Request) {
   try {
-    const items = (await request.json()) as DatabaseItem[];
+    const body = await request.json();
+    const items = (Array.isArray(body) ? body : body?.items) as DatabaseItem[];
     if (!Array.isArray(items)) {
       return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
     }
 
-    const { url, key } = getCredentials(request);
-    const result = await upsertToSupabase(url, key, items);
-
-    if (!result.ok) {
+    const ok = await writeToSupabase(items);
+    if (!ok) {
       return NextResponse.json(
-        { error: 'Supabase save failed', detail: result.error },
-        { status: 502 }
+        { ok: false, error: 'Supabase save failed — check table exists' },
+        { status: 503 }
       );
     }
-
-    return NextResponse.json({ success: true, count: items.length });
+    return NextResponse.json({ ok: true, count: items.length });
   } catch (err) {
-    console.error('POST /api/items error:', err);
-    return NextResponse.json({ error: 'Save failed' }, { status: 500 });
+    return NextResponse.json({ error: String(err) }, { status: 500 });
   }
 }

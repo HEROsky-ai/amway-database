@@ -7,9 +7,10 @@ interface HeaderProps {
   onAddNew: () => void;
   onExport: () => void;
   totalCount: number;
+  syncBadge?: React.ReactNode;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onAddNew, onExport, totalCount }) => {
+export const Header: React.FC<HeaderProps> = ({ onAddNew, onExport, totalCount, syncBadge }) => {
   return (
     <header className="app-header">
       <div className="app-header-inner">
@@ -19,7 +20,10 @@ export const Header: React.FC<HeaderProps> = ({ onAddNew, onExport, totalCount }
           </div>
           <div>
             <div className="app-title">安麗萬能資料庫</div>
-            <div className="app-subtitle">共 {totalCount} 筆知識筆記</div>
+            <div className="app-subtitle" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              共 {totalCount} 筆知識筆記
+              {syncBadge}
+            </div>
           </div>
         </div>
 
