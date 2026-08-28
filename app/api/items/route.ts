@@ -32,8 +32,10 @@ async function readFromSupabase(): Promise<DatabaseItem[] | null> {
       return null;
     }
     const rows = await res.json();
-    if (Array.isArray(rows) && rows.length > 0 && Array.isArray(rows[0].data)) {
-      return rows[0].data as DatabaseItem[];
+    // table exists but no data yet → return empty array (not null)
+    if (Array.isArray(rows)) {
+      if (rows.length === 0) return [];
+      if (Array.isArray(rows[0].data)) return rows[0].data as DatabaseItem[];
     }
     return null;
   } catch (err) {
