@@ -1,10 +1,18 @@
 import { NextResponse } from 'next/server';
 import { DatabaseItem } from '@/lib/types';
 
+// Fallback hardcoded (anon key = public, same as client-side db.ts)
+const HARDCODED_URL = 'https://lmcftpaujhdmmbiczbcu.supabase.co';
+const HARDCODED_KEY = 'sb_publishable_eTT-XDiMSqrLd0H-RqJy2w_QiJyN26c';
+
 const SUPABASE_URL =
-  process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  process.env.SUPABASE_URL ||
+  process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  HARDCODED_URL;
 const SUPABASE_KEY =
-  process.env.SUPABASE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+  process.env.SUPABASE_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  HARDCODED_KEY;
 
 // 使用 KV 表格：一列存所有資料（最簡單、最可靠）
 // SQL: CREATE TABLE amway_store (key text PRIMARY KEY, data jsonb, updated_at timestamptz DEFAULT now());
