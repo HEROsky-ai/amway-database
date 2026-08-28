@@ -68,9 +68,18 @@ export async function GET() {
   if (items !== null) {
     return NextResponse.json({ ok: true, source: 'supabase', data: items });
   }
-  // ← 重要：Supabase 失敗時回傳 503，不回傳假資料
+  // Return debug info (no credentials exposed)
   return NextResponse.json(
-    { ok: false, source: 'unavailable', data: null },
+    {
+      ok: false,
+      source: 'unavailable',
+      data: null,
+      debug: {
+        hasUrl: !!SUPABASE_URL,
+        hasKey: !!SUPABASE_KEY,
+        urlPrefix: SUPABASE_URL?.slice(0, 30) || 'missing',
+      },
+    },
     { status: 503 }
   );
 }
