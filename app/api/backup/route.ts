@@ -13,8 +13,15 @@ const SUPABASE_KEY =
   HARDCODED_KEY;
 
 const STORE_TABLE = 'amway_store';
-const BACKUP_TABLE = 'amway_backups';
-const KEEP_DAYS = 7;
+const BACKUP_HISTORY_KEY = 'backup_history';
+const MAX_SNAPSHOTS = 14; // 保留最近 14 次備份快照
+
+interface BackupSnapshot {
+  id: string;
+  created_at: string;
+  item_count: number;
+  data: unknown[];
+}
 
 async function supabaseFetch(path: string, options: RequestInit = {}) {
   return fetch(`${SUPABASE_URL}/rest/v1${path}`, {
@@ -42,37 +49,49 @@ export async function GET() {
       return NextResponse.json({ message: 'No items to backup' });
     }
 
-    const items = rows[0].data;
+    const currentItems = rows[0].data;
     const now = new Date().toISOString();
+    const newSnapshot: BackupSnapshot = {
+      id: `backup-${Date.now()}`,
+      created_at: now,
+      item_count: currentItems.length,
+      data: currentItems,
+    };
 
-    // 2. 寫入備份快照至 amway_backups
-    const insertRes = await supabaseFetch(`/${BACKUP_TABLE}`, {
+    // 2. 讀取現有的備份快照歷史
+    const historyRes = await supabaseFetch(`/${STORE_TABLE}?key=eq.${BACKUP_HISTORY_KEY}&select=data`);
+    let history: BackupSnapshot[] = [];
+    if (historyRes.ok) {
+      const hRows = await historyRes.json();
+      if (Array.isArray(hRows) && hRows.length > 0 && Array.isArray(hRows[0].data)) {
+        history = hRows[0].data;
+      }
+    }
+
+    // 加入最新快照，並最多保留 MAX_SNAPSHOTS 份
+    const updatedHistory = [newSnapshot, ...history].slice(0, MAX_SNAPSHOTS);
+
+    // 3. 存入 amway_store (key='backup_history')
+    const saveRes = await supabaseFetch(`/${STORE_TABLE}`, {
       method: 'POST',
-      headers: { Prefer: 'return=minimal' },
+      headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
       body: JSON.stringify({
-        created_at: now,
-        item_count: items.length,
-        data: items,
+        key: BACKUP_HISTORY_KEY,
+        data: updatedHistory,
+        updated_at: now,
       }),
     });
 
-    if (!insertRes.ok) {
-      const err = await insertRes.text();
-      return NextResponse.json({ error: 'Failed to save backup', detail: err }, { status: 502 });
+    if (!saveRes.ok) {
+      const err = await saveRes.text();
+      return NextResponse.json({ error: 'Failed to save backup snapshot', detail: err }, { status: 502 });
     }
-
-    // 3. 清除 7 天以前的舊備份
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - KEEP_DAYS);
-    await supabaseFetch(
-      `/${BACKUP_TABLE}?created_at=lt.${cutoff.toISOString()}`,
-      { method: 'DELETE' }
-    );
 
     return NextResponse.json({
       success: true,
       backed_up_at: now,
-      item_count: items.length,
+      item_count: currentItems.length,
+      total_snapshots: updatedHistory.length,
     });
   } catch (err) {
     console.error('Backup error:', err);
@@ -90,31 +109,40 @@ export async function POST(request: Request) {
   }
 
   try {
-    // 讀取指定備份
-    const res = await supabaseFetch(`/${BACKUP_TABLE}?id=eq.${backupId}&select=data`);
-    if (!res.ok) {
-      return NextResponse.json({ error: 'Backup not found' }, { status: 404 });
+    // 讀取備份歷史
+    const historyRes = await supabaseFetch(`/${STORE_TABLE}?key=eq.${BACKUP_HISTORY_KEY}&select=data`);
+    if (!historyRes.ok) {
+      return NextResponse.json({ error: 'Failed to read backup history' }, { status: 502 });
     }
-    const rows = await res.json();
-    if (!Array.isArray(rows) || rows.length === 0) {
-      return NextResponse.json({ error: 'Backup not found' }, { status: 404 });
+    const rows = await historyRes.json();
+    if (!Array.isArray(rows) || rows.length === 0 || !Array.isArray(rows[0].data)) {
+      return NextResponse.json({ error: 'No backups found' }, { status: 404 });
     }
 
-    const items = rows[0].data;
+    const history = rows[0].data as BackupSnapshot[];
+    const target = history.find((s) => s.id === backupId);
 
-    // 更新回 amway_store
+    if (!target || !Array.isArray(target.data)) {
+      return NextResponse.json({ error: `Backup with id ${backupId} not found` }, { status: 404 });
+    }
+
+    // 還原至 key='items'
     const updateRes = await supabaseFetch(`/${STORE_TABLE}`, {
       method: 'POST',
       headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
-      body: JSON.stringify({ key: 'items', data: items, updated_at: new Date().toISOString() }),
+      body: JSON.stringify({
+        key: 'items',
+        data: target.data,
+        updated_at: new Date().toISOString(),
+      }),
     });
 
     if (!updateRes.ok) {
       const err = await updateRes.text();
-      return NextResponse.json({ error: 'Failed to restore to store', detail: err }, { status: 502 });
+      return NextResponse.json({ error: 'Failed to restore', detail: err }, { status: 502 });
     }
 
-    return NextResponse.json({ success: true, restored_count: items.length });
+    return NextResponse.json({ success: true, restored_count: target.data.length });
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }
