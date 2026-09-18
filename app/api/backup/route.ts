@@ -1,8 +1,18 @@
 import { NextResponse } from 'next/server';
 
-const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const SUPABASE_KEY = process.env.SUPABASE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-const ITEMS_TABLE = 'amway_items';
+const HARDCODED_URL = 'https://lmcftpaujhdmmbiczbcu.supabase.co';
+const HARDCODED_KEY = 'sb_publishable_eTT-XDiMSqrLd0H-RqJy2w_QiJyN26c';
+
+const SUPABASE_URL =
+  process.env.SUPABASE_URL ||
+  process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  HARDCODED_URL;
+const SUPABASE_KEY =
+  process.env.SUPABASE_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  HARDCODED_KEY;
+
+const STORE_TABLE = 'amway_store';
 const BACKUP_TABLE = 'amway_backups';
 const KEEP_DAYS = 7;
 
@@ -13,32 +23,29 @@ async function supabaseFetch(path: string, options: RequestInit = {}) {
       apikey: SUPABASE_KEY,
       Authorization: `Bearer ${SUPABASE_KEY}`,
       'Content-Type': 'application/json',
-      ...(options.headers as Record<string, string> || {}),
+      ...((options.headers as Record<string, string>) || {}),
     },
   });
 }
 
 export async function GET() {
-  if (!SUPABASE_URL || !SUPABASE_KEY) {
-    return NextResponse.json({ error: 'Missing Supabase credentials' }, { status: 500 });
-  }
-
   try {
-    // 1. 讀取目前所有資料
-    const itemsRes = await supabaseFetch(`/${ITEMS_TABLE}?select=*&order=updatedAt.desc`);
+    // 1. 讀取目前 amway_store 中 key='items' 的最新資料
+    const itemsRes = await supabaseFetch(`/${STORE_TABLE}?key=eq.items&select=data`);
     if (!itemsRes.ok) {
       const err = await itemsRes.text();
-      return NextResponse.json({ error: 'Failed to read items', detail: err }, { status: 502 });
+      return NextResponse.json({ error: 'Failed to read items from store', detail: err }, { status: 502 });
     }
-    const items = await itemsRes.json();
+    const rows = await itemsRes.json();
 
-    if (!Array.isArray(items) || items.length === 0) {
+    if (!Array.isArray(rows) || rows.length === 0 || !Array.isArray(rows[0].data) || rows[0].data.length === 0) {
       return NextResponse.json({ message: 'No items to backup' });
     }
 
+    const items = rows[0].data;
     const now = new Date().toISOString();
 
-    // 2. 寫入備份快照
+    // 2. 寫入備份快照至 amway_backups
     const insertRes = await supabaseFetch(`/${BACKUP_TABLE}`, {
       method: 'POST',
       headers: { Prefer: 'return=minimal' },
@@ -73,7 +80,7 @@ export async function GET() {
   }
 }
 
-// 允許手動觸發還原：POST /api/backup?restore=true&backup_id=xxx
+// 允許手動觸發還原：POST /api/backup?backup_id=xxx
 export async function POST(request: Request) {
   const { searchParams } = new URL(request.url);
   const backupId = searchParams.get('backup_id');
@@ -95,13 +102,17 @@ export async function POST(request: Request) {
 
     const items = rows[0].data;
 
-    // 清除現有資料，還原備份
-    await supabaseFetch(`/${ITEMS_TABLE}?id=neq.null`, { method: 'DELETE' });
-    await supabaseFetch(`/${ITEMS_TABLE}`, {
+    // 更新回 amway_store
+    const updateRes = await supabaseFetch(`/${STORE_TABLE}`, {
       method: 'POST',
-      headers: { Prefer: 'return=minimal' },
-      body: JSON.stringify(items),
+      headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify({ key: 'items', data: items, updated_at: new Date().toISOString() }),
     });
+
+    if (!updateRes.ok) {
+      const err = await updateRes.text();
+      return NextResponse.json({ error: 'Failed to restore to store', detail: err }, { status: 502 });
+    }
 
     return NextResponse.json({ success: true, restored_count: items.length });
   } catch (err) {
